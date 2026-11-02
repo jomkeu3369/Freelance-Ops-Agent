@@ -5,7 +5,10 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PixelPetGenerationResult;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.GeneratePixelPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.*;
 import com.freelanceops.backend.domain.agentrun.model.*;
@@ -127,13 +130,13 @@ class PixelPetGenerationPostgresTest {
                         PetProfile.class);
     }
 
-    CustomAgentPetService.Compose input() {
-        return new CustomAgentPetService.Compose(
+    ComposeCustomAgentPetRequest input() {
+        return new ComposeCustomAgentPetRequest(
                 UUID.randomUUID(), UUID.randomUUID(), 0, "실현 가능성을 꼼꼼히 판단하는 펭귄", false);
     }
 
-    PixelPetGenerationService.Generate request(CustomAgentPetService.Compose input) {
-        return new PixelPetGenerationService.Generate(project, input);
+    GeneratePixelPetRequest request(ComposeCustomAgentPetRequest input) {
+        return new GeneratePixelPetRequest(project, input);
     }
 
     PixelPetGenerationService.GenerationPrincipal principal(UUID id) {
@@ -180,7 +183,7 @@ class PixelPetGenerationPostgresTest {
                         invocation -> {
                             var input = (PixelPetGenerationClient.Input) invocation.getArgument(0);
                             var output =
-                                    new PixelPetGenerationClient.Output(
+                                    new PixelPetGenerationResult(
                                             draft,
                                             report(
                                                     input.context().runId(),
@@ -208,7 +211,7 @@ class PixelPetGenerationPostgresTest {
         assertThat(result.profile().preferences().requests()).containsExactly(input.description());
         assertThat(generation.generate(user, workspace, request(input))).isEqualTo(result);
         var save =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         input.id(), input.mutationId(), 0, input.description(), false, result.id());
         var saved = pets.save(user, workspace, save);
         assertThat(pets.save(user, workspace, save)).isEqualTo(saved);
@@ -281,7 +284,7 @@ class PixelPetGenerationPostgresTest {
         pets.save(
                 user,
                 workspace,
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         original.id(),
                         original.mutationId(),
                         0,
@@ -289,13 +292,13 @@ class PixelPetGenerationPostgresTest {
                         false,
                         first.id()));
         var edit =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         original.id(), UUID.randomUUID(), 1, "말투를 더 다정하게", false);
         var second = generation.generate(user, workspace, request(edit));
         pets.save(
                 user,
                 workspace,
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         edit.id(), edit.mutationId(), 1, edit.description(), false, second.id()));
         assertThat(generation.generate(user, workspace, request(edit))).isEqualTo(second);
         assertThat(pets.list(user, workspace).pets().getFirst().revision()).isEqualTo(2);
@@ -331,7 +334,7 @@ class PixelPetGenerationPostgresTest {
         assertThatThrownBy(() -> generation.get(user, UUID.randomUUID(), result.id()))
                 .hasMessageContaining("404");
         var changed =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         input.id(), input.mutationId(), 0, "다른 설명", false);
         assertThatThrownBy(() -> generation.generate(user, workspace, request(changed)))
                 .hasMessageContaining("PET_REQUEST_REUSED");
@@ -340,7 +343,7 @@ class PixelPetGenerationPostgresTest {
                                 pets.save(
                                         user,
                                         workspace,
-                                        new CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 input.id(),
                                                 input.mutationId(),
                                                 0,

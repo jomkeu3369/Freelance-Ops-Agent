@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
 
 import org.springframework.http.HttpStatus;
@@ -20,12 +22,12 @@ public class PlatformUsageController {
     }
 
     @GetMapping("/api/v2/me/ai-usage")
-    public PlatformUsageService.Usage current(Authentication authentication) {
+    public PlatformUsageResponse current(Authentication authentication) {
         return service.snapshot(user(authentication));
     }
 
     @GetMapping("/api/v2/me/ai-usage/history")
-    public PlatformUsageService.History history(
+    public PlatformUsageHistoryResponse history(
             Authentication authentication,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int limit) {

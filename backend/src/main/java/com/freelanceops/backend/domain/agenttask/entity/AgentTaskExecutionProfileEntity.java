@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.agenttask.entity;
 
-import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunBudget;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agenttask.model.AgentTaskRiskLevel;
@@ -124,7 +124,7 @@ public class AgentTaskExecutionProfileEntity {
             String model,
             ReasoningEffort reasoningEffort,
             List<String> permissions,
-            StartAgentRunRequest.RunBudget budget,
+            AgentRunBudget budget,
             long authorizationRevision,
             long budgetRevision,
             String routeProfileVersion,
@@ -238,8 +238,8 @@ public class AgentTaskExecutionProfileEntity {
     }
 
     public AgentTaskExecutionProfileEntity copyForRevision(int revision, Instant now) {
-        StartAgentRunRequest.RunBudget budget =
-                new StartAgentRunRequest.RunBudget(
+        AgentRunBudget budget =
+                new AgentRunBudget(
                         maxDurationSeconds,
                         maxModelCalls,
                         maxToolCalls,

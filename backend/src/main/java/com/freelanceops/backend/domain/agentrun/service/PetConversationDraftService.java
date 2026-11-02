@@ -1,10 +1,14 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.AcceptProjectPetDraftRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationResponse;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
-import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.UUID;
 
 @Service
 public class PetConversationDraftService {
@@ -19,8 +23,8 @@ public class PetConversationDraftService {
         this.runs = runs;
     }
 
-    public ProjectPetConversationService.View accept(UUID user, UUID workspace, UUID project,
-            ProjectPetConversationService.Accept input) {
+    public ProjectPetConversationResponse accept(UUID user, UUID workspace, UUID project,
+            AcceptProjectPetDraftRequest input) {
         conversations.get(user, workspace, project);
         var run = runs.findByIdAndWorkspaceId(input.runId(), workspace)
                 .filter(value -> value.projectId().equals(project) && value.initiatedBy().equals(user))

@@ -1,6 +1,8 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier;
+import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionsResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.security.CredentialCipher;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
@@ -13,7 +15,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.*;
 
 @Service
@@ -40,21 +41,15 @@ public class AIConnectionService {
         this.models = Map.of(Provider.OPENAI, parseModels(openai), Provider.GEMINI, List.of());
     }
 
-    public record Connection(
-            UUID id, Provider provider, String model, String maskedKey, Instant updatedAt) {}
-
-    public record Connections(
-            boolean available, Map<Provider, List<String>> models, List<Connection> connections) {}
-
-    public Connections list(UUID user, UUID workspace) {
+    public AIConnectionsResponse list(UUID user, UUID workspace) {
         authorize(user, workspace);
-        return new Connections(
+        return new AIConnectionsResponse(
                 cipher.available(),
                 models,
                 jdbc.query(
                         "SELECT id, provider, model, masked_key, updated_at FROM app.ai_connection WHERE workspace_id = ? AND user_id = ? ORDER BY provider",
                         (row, n) ->
-                                new Connection(
+                                new AIConnectionResponse(
                                         row.getObject("id", UUID.class),
                                         Provider.valueOf(row.getString("provider")),
                                         row.getString("model"),
@@ -64,7 +59,7 @@ public class AIConnectionService {
                         user));
     }
 
-    public Connection save(
+    public AIConnectionResponse save(
             UUID user, UUID workspace, Provider provider, String model, String apiKey) {
         authorize(user, workspace);
         requireModel(provider, model);

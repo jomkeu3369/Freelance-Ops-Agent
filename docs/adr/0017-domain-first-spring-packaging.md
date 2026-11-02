@@ -26,9 +26,12 @@
 - 인증된 내부 Tool API는 `internaltool` 도메인으로 분리하고 실제 업무 처리는 각 업무 Service를 통해 수행한다.
 - 전 도메인 공통 기능만 `global`에 둔다. 현재 범위는 config, health이며 이후 exception, response, observability를 추가할 수 있다.
 - API request와 response는 JPA Entity와 분리된 최상위 DTO 파일로 작성한다. 여러 DTO를 `Contracts` 클래스에 중첩하지 않는다.
+- Entity와 model은 API·외부 연동 DTO에 의존하지 않는다. 업무 값과 영속 JSON의 타입은 소유 도메인의 model에 두고 DTO와의 변환은 경계에서 수행한다. 타입을 분리할 때 기존 컬럼·JSON 필드·enum·금액 정밀도를 보존하며, 과거 데이터에 현재 HTTP 요청의 검증 상한을 새로 적용하지 않는다. ArchUnit으로 entity·model의 DTO 의존을 금지한다.
+- 독립적인 HTTP 요청·응답은 `dto/request`, `dto/response`에 두며 Controller·Service 내부에 선언하지 않는다. 오류 응답과 내부 Tool API에도 같은 기준을 적용한다. 기존 양방향 공통 payload는 `dto`, 외부 Agent 통신 계약은 `client/dto`에 둘 수 있다. 단일 DTO에 종속된 구성요소와 API에 노출하지 않는 서비스 내부 레코드는 별도 파일로 분리하지 않아도 된다.
 - 구현체가 하나뿐인 업무 Service에는 형식적인 interface/implementation 쌍을 강제하지 않는다. 외부 연동이나 실제 교체 경계에는 interface를 사용한다.
 - 테스트 패키지는 운영 코드 구조를 반영한다.
 - ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증한다. 구조 테스트는 각 도메인의 실제 소스가 지원하는 계층에 속하고, 패키지 선언과 파일 경로가 일치하는지 검사한다.
+- DTO 이름 검사 외에도 Controller·ControllerAdvice 어노테이션으로 수집한 실제 `@RequestBody`와 endpoint·예외 처리 응답의 정적 타입을 검사한다. 제네릭 컨테이너와 DTO 구성요소를 재귀적으로 검사해 Controller·Service·Entity 타입의 직접 노출을 탐지한다. 기존 운영 정보 응답 `ServiceMetadata`, JDK·프레임워크 타입, 도메인 enum은 허용한다. `Object`·동적 Map·SSE 안의 런타임 객체는 별도 계약 검증 대상이다.
 
 ## 영향
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier;
+import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.security.CredentialCipher;
 import com.freelanceops.backend.domain.workspace.policy.*;
@@ -137,12 +138,12 @@ class AIConnectionServiceTest {
         when(auth.authorize(user, workspace, PermissionCode.AGENT_RUN))
                 .thenReturn(AuthorizationDecision.ALLOWED);
         var legacy =
-                new AIConnectionService.Connection(
+                new AIConnectionResponse(
                         id, Provider.GEMINI, "retired-model", "••••1234", java.time.Instant.EPOCH);
         when(jdbc.query(
                         anyString(),
                         org.mockito.ArgumentMatchers
-                                .<RowMapper<AIConnectionService.Connection>>any(),
+                                .<RowMapper<AIConnectionResponse>>any(),
                         eq(workspace),
                         eq(user)))
                 .thenReturn(List.of(legacy));

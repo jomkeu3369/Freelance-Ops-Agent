@@ -3,6 +3,7 @@ package com.freelanceops.backend.integration;
 import static org.assertj.core.api.Assertions.*;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.ByokBudget;
+import com.freelanceops.backend.domain.agentrun.dto.request.ByokExecutionAttemptRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
@@ -143,7 +144,7 @@ class ByokExecutionPostgresTest {
                         Provider.OPENAI,
                         MODEL,
                         ReasoningEffort.LOW,
-                        budget,
+                        budget.toModel(),
                         AgentRunStatus.RUNNING,
                         Instant.now());
         run.useCredential(credential);
@@ -168,8 +169,8 @@ class ByokExecutionPostgresTest {
                 f.run().id(), workspace, project, user, Set.of("agent.run", "project.read"));
     }
 
-    ByokExecutionService.Attempt attempt(UUID id) {
-        return new ByokExecutionService.Attempt(
+    ByokExecutionAttemptRequest attempt(UUID id) {
+        return new ByokExecutionAttemptRequest(
                 id,
                 credential,
                 Provider.OPENAI,
@@ -389,7 +390,7 @@ class ByokExecutionPostgresTest {
                         Provider.OPENAI,
                         MODEL,
                         ReasoningEffort.LOW,
-                        request.budget(),
+                        request.budget().toModel(),
                         AgentRunStatus.RUNNING,
                         Instant.now());
         run.useCredential(credential);
@@ -757,7 +758,7 @@ class ByokExecutionPostgresTest {
                                     if (!start.await(10, TimeUnit.SECONDS))
                                         throw new IllegalStateException("Barrier timeout");
                                     var claim =
-                                            new ByokExecutionService.Attempt(
+                                            new ByokExecutionAttemptRequest(
                                                     UUID.randomUUID(),
                                                     credential,
                                                     Provider.OPENAI,
@@ -856,7 +857,7 @@ class ByokExecutionPostgresTest {
         var f = create(BUDGET);
         for (var invalid :
                 List.of(
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -867,7 +868,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 20001,
                                 1),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1087,7 +1088,7 @@ class ByokExecutionPostgresTest {
                     .isInstanceOf(ByokExecutionException.class);
         for (var invalid :
                 List.of(
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 UUID.randomUUID(),
                                 Provider.OPENAI,
@@ -1098,7 +1099,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.GEMINI,
@@ -1109,7 +1110,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1120,7 +1121,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1131,7 +1132,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1142,7 +1143,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1153,7 +1154,7 @@ class ByokExecutionPostgresTest {
                                 "department_work_product",
                                 10000,
                                 500),
-                        new ByokExecutionService.Attempt(
+                        new ByokExecutionAttemptRequest(
                                 UUID.randomUUID(),
                                 credential,
                                 Provider.OPENAI,
@@ -1284,7 +1285,7 @@ class ByokExecutionPostgresTest {
                         Provider.OPENAI,
                         MODEL,
                         ReasoningEffort.LOW,
-                        BUDGET,
+                        BUDGET.toModel(),
                         AgentRunStatus.WAITING_FOR_USER,
                         Instant.now());
         legacy.useCredential(credential);

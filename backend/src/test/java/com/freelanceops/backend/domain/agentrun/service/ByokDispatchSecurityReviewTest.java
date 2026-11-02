@@ -67,7 +67,7 @@ class ByokDispatchSecurityReviewTest {
                         Provider.OPENAI,
                         "gpt-6-luna",
                         ReasoningEffort.LOW,
-                        budget,
+                        budget.toModel(),
                         AgentRunStatus.QUEUED,
                         Instant.now());
         run.useCredential(UUID.randomUUID());

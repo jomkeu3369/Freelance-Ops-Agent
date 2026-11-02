@@ -1,6 +1,10 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetsResponse;
 import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 
 import jakarta.validation.Valid;
@@ -21,7 +25,7 @@ public class CustomAgentPetController {
     }
 
     @GetMapping
-    public ResponseEntity<CustomAgentPetService.Collection> list(
+    public ResponseEntity<CustomAgentPetsResponse> list(
             @PathVariable UUID workspaceId, Authentication auth) {
         return response(pets.list(UUID.fromString(auth.getName()), workspaceId));
     }
@@ -30,15 +34,15 @@ public class CustomAgentPetController {
     public ResponseEntity<PetProfile> preview(
             @PathVariable UUID workspaceId,
             Authentication auth,
-            @Valid @RequestBody CustomAgentPetService.Compose input) {
+            @Valid @RequestBody ComposeCustomAgentPetRequest input) {
         return response(pets.preview(UUID.fromString(auth.getName()), workspaceId, input));
     }
 
     @PostMapping
-    public ResponseEntity<CustomAgentPetService.Pet> save(
+    public ResponseEntity<CustomAgentPetResponse> save(
             @PathVariable UUID workspaceId,
             Authentication auth,
-            @Valid @RequestBody CustomAgentPetService.Compose input) {
+            @Valid @RequestBody ComposeCustomAgentPetRequest input) {
         return response(pets.save(UUID.fromString(auth.getName()), workspaceId, input));
     }
 
@@ -47,7 +51,7 @@ public class CustomAgentPetController {
             @PathVariable UUID workspaceId,
             @PathVariable UUID id,
             Authentication auth,
-            @Valid @RequestBody CustomAgentPetService.Change input) {
+            @Valid @RequestBody ChangeCustomAgentPetRequest input) {
         pets.change(UUID.fromString(auth.getName()), workspaceId, id, input);
         return response(null);
     }

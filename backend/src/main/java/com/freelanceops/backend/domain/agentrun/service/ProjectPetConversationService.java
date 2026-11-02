@@ -2,28 +2,32 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetConversation;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.AcceptProjectPetDraftRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.UpdateProjectPetConversationRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
+
 import jakarta.validation.constraints.*;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import tools.jackson.databind.ObjectMapper;
+
 import java.util.*;
 
 @Service
 public class ProjectPetConversationService {
-    public record Settings(boolean petMode, boolean debateEnabled,
-            List<UUID> participantPetIds, AgentRunView.QuotationDraft acceptedDraft, UUID draftSourceRunId) {}
-    public record View(Settings settings, long version) {}
-    public record Update(boolean petMode, boolean debateEnabled,
-            @NotNull @Size(max = 3) List<@NotNull UUID> participantPetIds, @Min(0) long expectedVersion) {}
-    public record Accept(@NotNull UUID runId, @Min(0) long expectedVersion) {}
+
     public record Snapshot(List<PetProfile> profiles, PetConversation context) {}
 
     private final JdbcTemplate jdbc;
@@ -38,34 +42,34 @@ public class ProjectPetConversationService {
         this.permissions = permissions; this.projects = projects;
     }
 
-    public View get(UUID user, UUID workspace, UUID project) {
+    public ProjectPetConversationResponse get(UUID user, UUID workspace, UUID project) {
         authorize(user, workspace, project);
         var current = load(user, workspace, project);
         return visible(user, workspace, current);
     }
 
-    private View visible(UUID user, UUID workspace, View current) {
+    private ProjectPetConversationResponse visible(UUID user, UUID workspace, ProjectPetConversationResponse current) {
         var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         if (membership.permissions().contains(PermissionCode.QUOTATION_READ)) return current;
         var settings = current.settings();
-        return new View(new Settings(settings.petMode(), settings.debateEnabled(),
+        return new ProjectPetConversationResponse(new ProjectPetConversationSettingsResponse(settings.petMode(), settings.debateEnabled(),
                 settings.participantPetIds(), null, null), current.version());
     }
 
-    private View load(UUID user, UUID workspace, UUID project) {
+    private ProjectPetConversationResponse load(UUID user, UUID workspace, UUID project) {
         var rows = jdbc.query("SELECT settings_json::text, version FROM app.project_pet_conversation"
                 + " WHERE workspace_id = ? AND project_id = ? AND user_id = ?",
-                (row, index) -> new View(mapper.readValue(row.getString(1), Settings.class), row.getLong(2)),
+                (row, index) -> new ProjectPetConversationResponse(mapper.readValue(row.getString(1), ProjectPetConversationSettingsResponse.class), row.getLong(2)),
                 workspace, project, user);
         if (!rows.isEmpty()) return rows.getFirst();
         var collection = pets.list(user, workspace);
         var selected = collection.pets().stream().filter(p -> !p.archived()
-                && p.id().equals(collection.selectedPetId())).map(CustomAgentPetService.Pet::id).toList();
-        return new View(new Settings(!selected.isEmpty(), true, selected, null, null), 0);
+                && p.id().equals(collection.selectedPetId())).map(CustomAgentPetResponse::id).toList();
+        return new ProjectPetConversationResponse(new ProjectPetConversationSettingsResponse(!selected.isEmpty(), true, selected, null, null), 0);
     }
 
     @Transactional
-    public View update(UUID user, UUID workspace, UUID project, Update input) {
+    public ProjectPetConversationResponse update(UUID user, UUID workspace, UUID project, UpdateProjectPetConversationRequest input) {
         authorize(user, workspace, project);
         lock(project, workspace);
         var current = load(user, workspace, project);
@@ -74,13 +78,13 @@ public class ProjectPetConversationService {
                 || new HashSet<>(input.participantPetIds()).size() != input.participantPetIds().size()
                 || input.petMode() && input.participantPetIds().isEmpty()) throw invalid();
         profiles(user, workspace, input.participantPetIds());
-        var settings = new Settings(input.petMode(), input.debateEnabled(), List.copyOf(input.participantPetIds()),
+        var settings = new ProjectPetConversationSettingsResponse(input.petMode(), input.debateEnabled(), List.copyOf(input.participantPetIds()),
                 current.settings().acceptedDraft(), current.settings().draftSourceRunId());
         return visible(user, workspace, persist(user, workspace, project, settings, current.version()));
     }
 
     @Transactional
-    public View accept(UUID user, UUID workspace, UUID project, Accept input, AgentRunEntity run, AgentRunView result) {
+    public ProjectPetConversationResponse accept(UUID user, UUID workspace, UUID project, AcceptProjectPetDraftRequest input, AgentRunEntity run, AgentRunView result) {
         authorize(user, workspace, project);
         var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         if (!membership.permissions().contains(PermissionCode.QUOTATION_WRITE)
@@ -98,7 +102,7 @@ public class ProjectPetConversationService {
         lock(project, workspace);
         var current = load(user, workspace, project);
         checkVersion(current, input.expectedVersion());
-        var settings = new Settings(current.settings().petMode(), current.settings().debateEnabled(),
+        var settings = new ProjectPetConversationSettingsResponse(current.settings().petMode(), current.settings().debateEnabled(),
                 current.settings().participantPetIds(), result.result().quotationDraft(), input.runId());
         return persist(user, workspace, project, settings, current.version());
     }
@@ -147,12 +151,12 @@ public class ProjectPetConversationService {
                 .profile()).toList();
     }
 
-    private View persist(UUID user, UUID workspace, UUID project, Settings settings, long version) {
+    private ProjectPetConversationResponse persist(UUID user, UUID workspace, UUID project, ProjectPetConversationSettingsResponse settings, long version) {
         jdbc.update("INSERT INTO app.project_pet_conversation(workspace_id, project_id, user_id, settings_json, version)"
                 + " VALUES (?, ?, ?, ?::jsonb, ?) ON CONFLICT (workspace_id, project_id, user_id)"
                 + " DO UPDATE SET settings_json = EXCLUDED.settings_json, version = EXCLUDED.version",
                 workspace, project, user, mapper.writeValueAsString(settings), version + 1);
-        return new View(settings, version + 1);
+        return new ProjectPetConversationResponse(settings, version + 1);
     }
 
     private void authorize(UUID user, UUID workspace, UUID project) {
@@ -167,7 +171,7 @@ public class ProjectPetConversationService {
                 + " AND status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')", Integer.class, project, workspace) > 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_RUN_ACTIVE");
     }
-    private static void checkVersion(View current, long expected) {
+    private static void checkVersion(ProjectPetConversationResponse current, long expected) {
         if (current.version() != expected) throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_SETTINGS_CHANGED");
     }
     private static ResponseStatusException notFound() { return new ResponseStatusException(HttpStatus.NOT_FOUND); }

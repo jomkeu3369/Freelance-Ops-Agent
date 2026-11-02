@@ -4,9 +4,9 @@ import com.freelanceops.backend.domain.quotation.dto.request.CreateQuotationRequ
 import com.freelanceops.backend.domain.quotation.dto.request.SuggestQuotationAssumptionRequest;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationAssumptionSuggestionResponse;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationPageResponse;
+import com.freelanceops.backend.domain.quotation.dto.response.QuotationPreviewResponse;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationResponse;
 import com.freelanceops.backend.domain.quotation.service.QuotationAssumptionService;
-import com.freelanceops.backend.domain.quotation.service.QuotationCalculator;
 import com.freelanceops.backend.domain.quotation.service.QuotationService;
 
 import jakarta.validation.Valid;
@@ -86,12 +86,13 @@ public class ProjectQuotationController {
     }
 
     @PostMapping("/preview")
-    public QuotationCalculator.Calculation preview(
+    public QuotationPreviewResponse preview(
             @PathVariable UUID workspaceId,
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateQuotationRequest request,
             Authentication authentication) {
-        return service.preview(userId(authentication), workspaceId, projectId, request);
+        return QuotationPreviewResponse.from(
+                service.preview(userId(authentication), workspaceId, projectId, request));
     }
 
     private static UUID userId(Authentication authentication) {

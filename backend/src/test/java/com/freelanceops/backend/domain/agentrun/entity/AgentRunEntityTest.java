@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.freelanceops.backend.domain.agentrun.model.AgentRunBudget;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 
@@ -11,6 +12,27 @@ import java.time.Instant;
 import java.util.UUID;
 
 class AgentRunEntityTest {
+
+    @Test
+    void retainsEveryStoredBudgetValueWithoutApplyingCurrentHttpLimits() {
+        var budget = new AgentRunBudget(901, 51, 101, 98765, 87654, 5, 3, 101, 6, 11);
+        var now = Instant.parse("2026-08-24T00:00:00Z");
+        var run =
+                new AgentRunEntity(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        Provider.OPENAI,
+                        "retired-model",
+                        com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW,
+                        budget,
+                        AgentRunStatus.COMPLETED,
+                        now);
+
+        assertThat(run.budget()).isEqualTo(budget);
+    }
 
     @Test
     void aDelayedQueuedAcknowledgementCannotRegressARunningProjection() {

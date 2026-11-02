@@ -7,6 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.freelanceops.backend.domain.agentrun.dto.request.CreateModelPricingRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunUsage;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
+import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.entity.AgentRunUsageEntity;
 import com.freelanceops.backend.domain.agentrun.entity.ModelPricingEntity;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.RequestTier;
@@ -22,9 +25,70 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 class AgentCostServiceTest {
+
+    @Test
+    void persistedSnapshotsReturnTheSameProviderCallDtoAndAmounts() {
+        var pricing = mock(ModelPricingRepository.class);
+        var usages = mock(AgentRunUsageRepository.class);
+        var runs = mock(AgentRunRepository.class);
+        var authorization = mock(WorkspaceAuthorizationService.class);
+        var service = new AgentCostService(pricing, usages, runs, authorization);
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), run = UUID.randomUUID();
+        var call =
+                new ProviderCallUsage(
+                        UUID.randomUUID(),
+                        Provider.OPENAI,
+                        "historical-model",
+                        "responses.create",
+                        1000,
+                        500,
+                        100,
+                        50,
+                        new BigDecimal("0.12345678"),
+                        new BigDecimal("1.23456789"),
+                        true,
+                        "PLATFORM");
+        var report =
+                new AgentRunUsage(
+                        RequestTier.SINGLE_AGENT,
+                        1,
+                        0,
+                        1000,
+                        500,
+                        100,
+                        0,
+                        0,
+                        0,
+                        123,
+                        List.of(call),
+                        new BigDecimal("0.12345678"),
+                        run,
+                        "pinned-tariff");
+        var stored = new AgentRunUsageEntity(run, workspace);
+        stored.updatePlatform(
+                report.toSnapshot(),
+                new BigDecimal("0.12345678"),
+                new BigDecimal("1.23456789"),
+                false,
+                Instant.parse("2026-10-01T00:00:00Z"));
+        when(authorization.authorize(user, workspace, PermissionCode.AUDIT_READ))
+                .thenReturn(AuthorizationDecision.ALLOWED);
+        when(runs.findByIdAndWorkspaceId(run, workspace))
+                .thenReturn(Optional.of(mock(AgentRunEntity.class)));
+        when(usages.findByAgentRunIdAndWorkspaceId(run, workspace)).thenReturn(Optional.of(stored));
+
+        var response = service.getUsage(user, workspace, run);
+        assertThat(response.providerCalls()).containsExactly(call);
+        assertThat(response.actualCost()).isEqualTo(new BigDecimal("0.12345678"));
+        assertThat(response.platformCostUsd()).isEqualTo(new BigDecimal("1.23456789"));
+        assertThat(response.platformReservationId()).isEqualTo(run);
+        assertThat(response.tariffVersion()).isEqualTo("pinned-tariff");
+    }
 
     @Test
     void calculatesVersionedModelCostWithoutFloatingPoint() {

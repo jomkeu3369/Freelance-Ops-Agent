@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.internaltool.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.ByokExecutionAttemptRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.ByokExecutionAdmissionResponse;
 import com.freelanceops.backend.domain.agentrun.service.ByokExecutionService;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 
@@ -21,9 +23,9 @@ public class InternalByokExecutionController {
     }
 
     @PostMapping("/{scopeId}/attempts")
-    public ResponseEntity<ByokExecutionService.Admission> admit(
+    public ResponseEntity<ByokExecutionAdmissionResponse> admit(
             @PathVariable UUID scopeId,
-            @Valid @RequestBody ByokExecutionService.Attempt attempt,
+            @Valid @RequestBody ByokExecutionAttemptRequest attempt,
             @RequestAttribute("internalToolDelegationPrincipal") DelegationPrincipal principal) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())

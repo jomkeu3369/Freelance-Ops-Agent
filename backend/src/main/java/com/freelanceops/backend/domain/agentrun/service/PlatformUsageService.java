@@ -1,8 +1,12 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
-import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ExternalToolCallUsage;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageEntryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageModelResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
@@ -49,45 +53,6 @@ public class PlatformUsageService {
         this.mapper = mapper;
         this.enabled = enabled;
     }
-
-    public record Model(
-            String provider,
-            String model,
-            boolean catalogued,
-            boolean enabled,
-            List<String> reasoningEfforts,
-            BigDecimal maxRunUsd,
-            boolean available,
-            String unavailableReason,
-            boolean providerAccessVerified) {}
-
-    public record Usage(
-            String currency,
-            BigDecimal limitUsd,
-            BigDecimal settledUsd,
-            BigDecimal reservedUsd,
-            BigDecimal remainingUsd,
-            BigDecimal remainingPercent,
-            BigDecimal reservedPercent,
-            LocalDate periodStart,
-            Instant resetAt,
-            String timezone,
-            boolean spendingEnabled,
-            List<Model> models) {}
-
-    public record UsageEntry(
-            UUID runId,
-            String model,
-            String status,
-            Instant startedAt,
-            BigDecimal platformCostUsd,
-            BigDecimal platformReservedUsd,
-            boolean usageKnown,
-            long byokInputTokens,
-            long byokOutputTokens,
-            List<ProviderCallUsage> providerCalls) {}
-
-    public record History(List<UsageEntry> items, String nextCursor) {}
 
     private record Hold(
             UUID user,
@@ -298,7 +263,7 @@ public class PlatformUsageService {
     }
 
     @Transactional
-    public Usage snapshot(UUID userId) {
+    public PlatformUsageResponse snapshot(UUID userId) {
         Objects.requireNonNull(userId);
         Instant now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class).toInstant();
         var period = FreeUsageService.Period.at(now);
@@ -331,7 +296,7 @@ public class PlatformUsageService {
                                 PlatformSpendService.Period.at(now).day(),
                                 settings.get(1))
                         .min(available("GLOBAL_WEEK", GLOBAL, period.start(), settings.get(2)));
-        List<Model> models =
+        List<PlatformUsageModelResponse> models =
                 jdbc.query(
                         "SELECT model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER"
                                 + " BY model",
@@ -357,7 +322,7 @@ public class PlatformUsageService {
                                     List.of("gpt-6.1-sol", "gpt-6-astra").contains(id)
                                             ? List.of("LOW", "MEDIUM", "HIGH")
                                             : List.of("NONE", "LOW", "MEDIUM", "HIGH");
-                            return new Model(
+                            return new PlatformUsageModelResponse(
                                     "OPENAI",
                                     id,
                                     true,
@@ -368,7 +333,7 @@ public class PlatformUsageService {
                                     reason,
                                     false);
                         });
-        return new Usage(
+        return new PlatformUsageResponse(
                 "USD",
                 limit,
                 totals.get(0),
@@ -427,7 +392,7 @@ public class PlatformUsageService {
     }
 
     @Transactional(readOnly = true)
-    public History history(UUID userId, String cursor, int limit) {
+    public PlatformUsageHistoryResponse history(UUID userId, String cursor, int limit) {
         Objects.requireNonNull(userId);
         if (limit < 1 || limit > 100)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Limit must be 1..100");
@@ -471,7 +436,7 @@ public class PlatformUsageService {
                                     byokScope == null
                                             ? attempts(run)
                                             : personalAttempts(byokScope, row.getString(2));
-                            return new UsageEntry(
+                            return new PlatformUsageEntryResponse(
                                     run,
                                     row.getString(2),
                                     row.getString(3),
@@ -515,6 +480,6 @@ public class PlatformUsageService {
                                     (last.startedAt() + "|" + last.runId())
                                             .getBytes(StandardCharsets.UTF_8));
         }
-        return new History(items, next);
+        return new PlatformUsageHistoryResponse(items, next);
     }
 }

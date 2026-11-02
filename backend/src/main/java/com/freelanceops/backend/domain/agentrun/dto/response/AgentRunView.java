@@ -1,9 +1,11 @@
 package com.freelanceops.backend.domain.agentrun.dto.response;
 
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunUsageSnapshot;
 import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
 import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.model.ProviderCallUsageSnapshot;
 import com.freelanceops.backend.domain.agentrun.model.RequestTier;
 
 import java.time.Instant;
@@ -339,6 +341,24 @@ public record AgentRunView(
                     null);
         }
 
+        public AgentRunUsageSnapshot toSnapshot() {
+            return new AgentRunUsageSnapshot(
+                    requestTier,
+                    modelCalls,
+                    toolCalls,
+                    inputTokens,
+                    outputTokens,
+                    cachedTokens,
+                    searchCredits,
+                    crawledPages,
+                    retryCount,
+                    durationMs,
+                    providerCalls.stream().map(ProviderCallUsage::toSnapshot).toList(),
+                    platformReservationId,
+                    tariffVersion,
+                    byokScopeId);
+        }
+
         public AgentRunUsage {
             if (byokScopeId != null && (platformReservationId != null || tariffVersion != null))
                 throw new IllegalArgumentException("Personal usage cannot claim platform funding");
@@ -422,25 +442,51 @@ public record AgentRunView(
         }
 
         public ProviderCallUsage {
-            if (!("PLATFORM".equals(fundingSource) || "BYOK".equals(fundingSource))) {
-                throw new IllegalArgumentException("Provider funding source must be explicit");
-            }
-            if (callId == null
-                    || provider == null
-                    || model == null
-                    || operation == null
-                    || inputTokens < 0
-                    || outputTokens < 0
-                    || cachedReadTokens < 0
-                    || cacheWriteTokens < 0
-                    || cachedReadTokens > inputTokens
-                    || cacheWriteTokens > inputTokens - cachedReadTokens
-                    || costUsd == null
-                    || costUsd.signum() < 0
-                    || reservedCostUsd == null
-                    || reservedCostUsd.signum() < 0) {
-                throw new IllegalArgumentException("Invalid per-attempt provider usage");
-            }
+            new ProviderCallUsageSnapshot(
+                    callId,
+                    provider,
+                    model,
+                    operation,
+                    inputTokens,
+                    outputTokens,
+                    cachedReadTokens,
+                    cacheWriteTokens,
+                    costUsd,
+                    reservedCostUsd,
+                    usageKnown,
+                    fundingSource);
+        }
+
+        public ProviderCallUsageSnapshot toSnapshot() {
+            return new ProviderCallUsageSnapshot(
+                    callId,
+                    provider,
+                    model,
+                    operation,
+                    inputTokens,
+                    outputTokens,
+                    cachedReadTokens,
+                    cacheWriteTokens,
+                    costUsd,
+                    reservedCostUsd,
+                    usageKnown,
+                    fundingSource);
+        }
+
+        public static ProviderCallUsage fromSnapshot(ProviderCallUsageSnapshot call) {
+            return new ProviderCallUsage(
+                    call.callId(),
+                    call.provider(),
+                    call.model(),
+                    call.operation(),
+                    call.inputTokens(),
+                    call.outputTokens(),
+                    call.cachedReadTokens(),
+                    call.cacheWriteTokens(),
+                    call.costUsd(),
+                    call.reservedCostUsd(),
+                    call.usageKnown(),
+                    call.fundingSource());
         }
     }
 }

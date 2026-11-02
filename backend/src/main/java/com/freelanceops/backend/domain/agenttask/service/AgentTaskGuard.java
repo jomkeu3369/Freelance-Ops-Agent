@@ -1,7 +1,7 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
-import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunBudget;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.service.AgentBudgetPolicy;
 import com.freelanceops.backend.domain.agentrun.service.ProviderPolicy;
@@ -78,7 +78,8 @@ public class AgentTaskGuard {
         ProviderPolicy.requireSupported(profile.provider());
         requireProfile(profile, run);
         budgetPolicy.enforce(profile.budget());
-        requireWithinRunBudget(profile.budget(), run.budget());
+        AgentRunBudget budget = profile.budget().toModel();
+        requireWithinRunBudget(budget, run.budget());
         return new AgentTaskExecutionProfileEntity(
                 new AgentTaskExecutionProfileId(task.id(), task.revision()),
                 task.workspaceId(),
@@ -91,7 +92,7 @@ public class AgentTaskGuard {
                 profile.model(),
                 profile.reasoningEffort(),
                 profile.permissions(),
-                profile.budget(),
+                budget,
                 authorizationRevision(currentPermissions),
                 1,
                 profile.routeProfileVersion(),
@@ -158,7 +159,7 @@ public class AgentTaskGuard {
         }
     }
 
-    private static void requireWithinRunBudget(RunBudget requested, RunBudget maximum) {
+    private static void requireWithinRunBudget(AgentRunBudget requested, AgentRunBudget maximum) {
         if (requested.maxDurationSeconds() > maximum.maxDurationSeconds()
                 || requested.maxModelCalls() > maximum.maxModelCalls()
                 || requested.maxToolCalls() > maximum.maxToolCalls()

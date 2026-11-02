@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
+import com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException;
 import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.AgentInput;
@@ -11,7 +12,6 @@ import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunReques
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
-import com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
@@ -220,7 +220,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                         request.modelSelection().provider(),
                         request.modelSelection().model(),
                         request.modelSelection().reasoningEffort(),
-                        request.budget(),
+                        request.budget().toModel(),
                         AgentRunStatus.QUEUED,
                         Instant.now());
         run.useCredential(request.modelSelection().credentialId());

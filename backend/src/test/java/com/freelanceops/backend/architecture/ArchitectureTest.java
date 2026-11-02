@@ -51,6 +51,15 @@ class ArchitectureTest {
                     .resideInAnyPackage("..controller..", "..service..");
 
     @ArchTest
+    static final ArchRule entities_and_models_must_not_depend_on_api_dtos =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage("..entity..", "..model..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("..dto..");
+
+    @ArchTest
     static final ArchRule controllers_must_be_annotated =
             classes()
                     .that()
@@ -66,7 +75,9 @@ class ArchitectureTest {
     static final ArchRule requests_must_reside_in_request_packages =
             classes()
                     .that()
-                    .resideInAPackage("..dto..")
+                    .resideInAPackage("com.freelanceops.backend.domain..")
+                    .and()
+                    .arePublic()
                     .and()
                     .haveSimpleNameEndingWith("Request")
                     .should()
@@ -76,7 +87,9 @@ class ArchitectureTest {
     static final ArchRule responses_must_reside_in_response_packages =
             classes()
                     .that()
-                    .resideInAPackage("..dto..")
+                    .resideInAPackage("com.freelanceops.backend.domain..")
+                    .and()
+                    .arePublic()
                     .and()
                     .haveSimpleNameEndingWith("Response")
                     .should()

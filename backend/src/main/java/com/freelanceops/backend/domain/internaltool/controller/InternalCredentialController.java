@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.internaltool.controller;
 
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.internaltool.dto.response.InternalCredentialResponse;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.internaltool.service.InternalCredentialService;
 
@@ -19,7 +20,7 @@ public class InternalCredentialController {
     }
 
     @GetMapping("/{id}/credential")
-    public ResponseEntity<InternalCredentialService.Credential> resolve(
+    public ResponseEntity<InternalCredentialResponse> resolve(
             @PathVariable UUID id,
             @RequestParam Provider provider,
             @RequestParam String model,

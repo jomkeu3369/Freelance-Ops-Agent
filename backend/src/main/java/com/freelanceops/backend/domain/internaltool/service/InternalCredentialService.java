@@ -3,6 +3,7 @@ package com.freelanceops.backend.domain.internaltool.service;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.service.AIConnectionService;
+import com.freelanceops.backend.domain.internaltool.dto.response.InternalCredentialResponse;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.*;
@@ -35,14 +36,7 @@ public class InternalCredentialService {
         this.byok = byok;
     }
 
-    public record Credential(String apiKey) {
-        @Override
-        public String toString() {
-            return "Credential[redacted]";
-        }
-    }
-
-    public Credential resolve(
+    public InternalCredentialResponse resolve(
             UUID id, Provider provider, String model, DelegationPrincipal principal) {
         if (!principal.permissions().contains("agent.run")
                 || !principal.permissions().contains("project.read")
@@ -78,7 +72,7 @@ public class InternalCredentialService {
                         principal.projectId(),
                         principal.initiatedBy(),
                         principal.permissions()));
-        return new Credential(
+        return new InternalCredentialResponse(
                 service.resolve(
                         principal.initiatedBy(), principal.workspaceId(), id, provider, model));
     }

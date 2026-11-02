@@ -3,6 +3,7 @@ package com.freelanceops.backend.domain.agentrun.service;
 import com.freelanceops.backend.domain.agentrun.client.AttachmentReaderClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.dto.AttachmentText;
+import com.freelanceops.backend.domain.agentrun.dto.response.ChatAttachmentPreviewResponse;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -25,7 +26,6 @@ import java.util.*;
 
 @Service
 public class ChatAttachmentService {
-    public record Preview(UUID id, Instant expiresAt, AttachmentText extraction) {}
 
     private final WorkspacePermissionReader permissions;
     private final ProjectRepository projects;
@@ -65,7 +65,7 @@ public class ChatAttachmentService {
     }
 
     @Transactional
-    public Preview upload(
+    public ChatAttachmentPreviewResponse upload(
             UUID user,
             UUID workspace,
             UUID project,
@@ -76,7 +76,7 @@ public class ChatAttachmentService {
     }
 
     @Transactional
-    public Preview upload(
+    public ChatAttachmentPreviewResponse upload(
             UUID user,
             UUID workspace,
             UUID project,
@@ -158,7 +158,7 @@ public class ChatAttachmentService {
                 user,
                 mapper.writeValueAsString(extraction),
                 java.sql.Timestamp.from(expires));
-        return new Preview(id, expires, extraction);
+        return new ChatAttachmentPreviewResponse(id, expires, extraction);
     }
 
     @Transactional

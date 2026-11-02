@@ -1,21 +1,18 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.ByokBudget;
+import com.freelanceops.backend.domain.agentrun.dto.request.ByokExecutionAttemptRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
+import com.freelanceops.backend.domain.agentrun.dto.response.ByokExecutionAdmissionResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
-import com.freelanceops.backend.domain.agentrun.model.Provider;
-import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
-
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -72,25 +69,6 @@ public class ByokExecutionService {
             UUID projectId,
             UUID initiatedBy,
             Set<String> permissions) {}
-
-    public record Attempt(
-            @NotNull UUID callId,
-            @NotNull UUID credentialId,
-            @NotNull Provider provider,
-            @NotNull String model,
-            @NotNull ReasoningEffort reasoningEffort,
-            @NotNull String fundingSource,
-            @NotNull String serviceTier,
-            @NotNull String operation,
-            @Min(1) int inputTokens,
-            @Min(1) int maxOutputTokens) {}
-
-    public record Admission(
-            UUID callId,
-            boolean admitted,
-            Instant validUntil,
-            String fundingSource,
-            String serviceTier) {}
 
     private record Scope(ByokBudget budget, boolean closed) {}
 
@@ -182,7 +160,7 @@ public class ByokExecutionService {
                 locked.workspaceId(),
                 locked.projectId(),
                 selection(locked),
-                locked.budget());
+                RunBudget.fromModel(locked.budget()));
         if (TERMINAL.contains(locked.status())) throw closed();
         requireOpen(scope);
         requireCurrentAccess(locked);
@@ -190,7 +168,7 @@ public class ByokExecutionService {
     }
 
     @Transactional
-    public Admission admit(UUID scopeId, Attempt attempt, ExecutionPrincipal principal) {
+    public ByokExecutionAdmissionResponse admit(UUID scopeId, ByokExecutionAttemptRequest attempt, ExecutionPrincipal principal) {
         requirePrincipal(principal);
         AgentRunEntity run =
                 runs.findByIdAndWorkspaceIdForUpdate(principal.runId(), principal.workspaceId())
@@ -209,7 +187,7 @@ public class ByokExecutionService {
                 run.workspaceId(),
                 run.projectId(),
                 selection(run),
-                run.budget());
+                RunBudget.fromModel(run.budget()));
         if (!scope.scopeId().equals(scopeId)
                 || attempt == null
                 || attempt.callId() == null
@@ -263,7 +241,7 @@ public class ByokExecutionService {
                     HttpStatus.TOO_MANY_REQUESTS,
                     "BYOK_LIMIT_EXHAUSTED",
                     "Personal execution call or token limits are exhausted; reservations are not reset by retry or resume");
-        return new Admission(
+        return new ByokExecutionAdmissionResponse(
                 attempt.callId(),
                 true,
                 scope.validUntil(),

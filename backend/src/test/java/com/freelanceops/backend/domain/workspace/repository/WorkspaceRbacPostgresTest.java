@@ -3,7 +3,11 @@ package com.freelanceops.backend.domain.workspace.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PetGenerationResponse;
+import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ReviewRouteObservationRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRouteObservationEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRouteLabel;
 import com.freelanceops.backend.domain.agentrun.model.RouteCorrectionSource;
@@ -12,7 +16,6 @@ import com.freelanceops.backend.domain.agentrun.service.AgentRouteCanaryService;
 import com.freelanceops.backend.domain.agentrun.service.AgentRouteExportService;
 import com.freelanceops.backend.domain.agentrun.service.AgentRouteReviewService;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
-import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
 import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
 import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
@@ -130,7 +133,7 @@ class WorkspaceRbacPostgresTest {
         UUID otherWorkspace =
                 provisioningService.create(owner, "Other pets", "custom-pets-other").workspaceId();
         var input =
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         UUID.randomUUID(), UUID.randomUUID(), 0, "친근한 고양이. 일정 관리를 꼼꼼히", false);
         var preview = customPets.preview(owner, workspace, input);
         assertThat(customPets.list(owner, workspace).pets()).isEmpty();
@@ -143,7 +146,7 @@ class WorkspaceRbacPostgresTest {
         var snapshot = pets.list(owner, workspace);
         assertThat(snapshot).containsExactly(pet.profile());
         var edit =
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         pet.id(), UUID.randomUUID(), 1, "말투: 유쾌한 선장처럼; 업무: 계약 번역", false);
         assertThatThrownBy(() -> customPets.save(other, workspace, edit))
                 .hasMessageContaining("404");
@@ -157,8 +160,7 @@ class WorkspaceRbacPostgresTest {
                                 customPets.save(
                                         owner,
                                         workspace,
-                                        new com.freelanceops.backend.domain.agentrun.service
-                                                .CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 pet.id(), UUID.randomUUID(), 1, "stale", false)))
                 .hasMessageContaining("409");
         assertThat(snapshot.getFirst().preferences().communication()).isEmpty();
@@ -168,7 +170,7 @@ class WorkspaceRbacPostgresTest {
                 owner,
                 workspace,
                 pet.id(),
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                new ChangeCustomAgentPetRequest(
                         "ARCHIVE", 2));
         assertThat(pets.list(owner, workspace)).isEmpty();
         assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
@@ -178,28 +180,27 @@ class WorkspaceRbacPostgresTest {
                                         owner,
                                         workspace,
                                         pet.id(),
-                                        new com.freelanceops.backend.domain.agentrun.service
-                                                .CustomAgentPetService.Change("SELECT", 3)))
+                                        new ChangeCustomAgentPetRequest("SELECT", 3)))
                 .hasMessageContaining("PET_ARCHIVED");
         customPets.change(
                 owner,
                 workspace,
                 pet.id(),
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                new ChangeCustomAgentPetRequest(
                         "RESTORE", 3));
         assertThat(pets.list(owner, workspace)).isEmpty();
         customPets.change(
                 owner,
                 workspace,
                 pet.id(),
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                new ChangeCustomAgentPetRequest(
                         "SELECT", 4));
         assertThat(pets.list(owner, workspace)).hasSize(1);
         customPets.change(
                 owner,
                 workspace,
                 pet.id(),
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                new ChangeCustomAgentPetRequest(
                         "ARCHIVE", 4));
         customPets.delete(owner, workspace, pet.id(), 5);
         assertThat(customPets.list(owner, workspace).pets()).isEmpty();
@@ -234,8 +235,7 @@ class WorkspaceRbacPostgresTest {
                                 customPets.save(
                                         owner,
                                         workspace,
-                                        new com.freelanceops.backend.domain.agentrun.service
-                                                .CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 UUID.randomUUID(),
                                                 UUID.randomUUID(),
                                                 0,
@@ -258,10 +258,10 @@ class WorkspaceRbacPostgresTest {
                 owner,
                 workspace,
                 first.id(),
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                new ChangeCustomAgentPetRequest(
                         "ARCHIVE", 1));
         var input =
-                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         UUID.randomUUID(), UUID.randomUUID(), 0, "새 펫", false);
         try (var pool = Executors.newFixedThreadPool(2)) {
             var results =
@@ -278,8 +278,7 @@ class WorkspaceRbacPostgresTest {
                                         owner,
                                         workspace,
                                         first.id(),
-                                        new com.freelanceops.backend.domain.agentrun.service
-                                                .CustomAgentPetService.Change("RESTORE", 2)))
+                                        new ChangeCustomAgentPetRequest("RESTORE", 2)))
                 .hasMessageContaining("PET_ACTIVE_LIMIT");
     }
 
@@ -296,7 +295,7 @@ class WorkspaceRbacPostgresTest {
                                 customPets.save(
                                         owner,
                                         workspace,
-                                        new CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 create.id(),
                                                 create.mutationId(),
                                                 0,
@@ -308,7 +307,7 @@ class WorkspaceRbacPostgresTest {
                                 customPets.save(
                                         owner,
                                         workspace,
-                                        new CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 create.id(),
                                                 create.mutationId(),
                                                 0,
@@ -318,7 +317,7 @@ class WorkspaceRbacPostgresTest {
         assertThat(customPets.list(owner, workspace)).isEqualTo(before);
 
         var edit =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         saved.id(), UUID.randomUUID(), 1, "중점: 빠뜨린 일 찾기", false);
         var revised = customPets.save(owner, workspace, edit);
         // 가장 최근 변경만 기억한다. 과거 생성 요청을 재전송해도 수정된 동료를 되돌리거나 덮어쓰지 않는다.
@@ -329,7 +328,7 @@ class WorkspaceRbacPostgresTest {
                 owner,
                 workspace,
                 saved.id(),
-                new CustomAgentPetService.Change("ARCHIVE", revised.revision()));
+                new ChangeCustomAgentPetRequest("ARCHIVE", revised.revision()));
         assertThatThrownBy(() -> customPets.save(owner, workspace, edit))
                 .hasMessageContaining("PET_REVISION_CHANGED");
         var archived = customPets.list(owner, workspace);
@@ -356,7 +355,7 @@ class WorkspaceRbacPostgresTest {
         var original = customPets.save(owner, workspace, petInput("고양이"));
         var own = customPets.save(other, workspace, petInput("부엉이"));
         var collision =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         original.id(), UUID.randomUUID(), 0, "거북이", false);
         assertThatThrownBy(() -> customPets.save(other, workspace, collision))
                 .hasMessageContaining("PET_ID_UNAVAILABLE");
@@ -402,7 +401,7 @@ class WorkspaceRbacPostgresTest {
                                                     owner,
                                                     workspace,
                                                     original.id(),
-                                                    new CustomAgentPetService.Change("ARCHIVE", 1));
+                                                    new ChangeCustomAgentPetRequest("ARCHIVE", 1));
                                             assertThat(
                                                             customPets
                                                                     .list(owner, workspace)
@@ -429,7 +428,7 @@ class WorkspaceRbacPostgresTest {
         for (int i = 0; i < maximum; i++) {
             var pet = customPets.save(owner, workspace, petInput("일정 친구 " + i));
             customPets.change(
-                    owner, workspace, pet.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+                    owner, workspace, pet.id(), new ChangeCustomAgentPetRequest("ARCHIVE", 1));
         }
         var full = customPets.list(owner, workspace);
         assertThat(full.pets())
@@ -440,9 +439,9 @@ class WorkspaceRbacPostgresTest {
         assertThat(customPets.list(owner, workspace)).isEqualTo(full);
         var first = full.pets().getFirst();
         customPets.change(
-                owner, workspace, first.id(), new CustomAgentPetService.Change("RESTORE", 2));
+                owner, workspace, first.id(), new ChangeCustomAgentPetRequest("RESTORE", 2));
         var edit =
-                new CustomAgentPetService.Compose(
+                new ComposeCustomAgentPetRequest(
                         first.id(), UUID.randomUUID(), 3, "말투: 천천히", false);
         var revised = customPets.save(owner, workspace, edit);
         assertThat(revised.revision()).isEqualTo(4);
@@ -466,7 +465,7 @@ class WorkspaceRbacPostgresTest {
         try (var pool = Executors.newFixedThreadPool(2)) {
             var jobs =
                     new java.util.ArrayList<
-                            java.util.concurrent.Callable<CustomAgentPetService.Pet>>();
+                            java.util.concurrent.Callable<CustomAgentPetResponse>>();
             for (String prompt : java.util.List.of("말투: 천천히", "중점: 일정 확인"))
                 jobs.add(
                         () -> {
@@ -475,7 +474,7 @@ class WorkspaceRbacPostgresTest {
                                 return customPets.save(
                                         owner,
                                         workspace,
-                                        new CustomAgentPetService.Compose(
+                                        new ComposeCustomAgentPetRequest(
                                                 original.id(),
                                                 UUID.randomUUID(),
                                                 1,
@@ -503,8 +502,8 @@ class WorkspaceRbacPostgresTest {
         }
     }
 
-    private static CustomAgentPetService.Compose petInput(String prompt) {
-        return new CustomAgentPetService.Compose(
+    private static ComposeCustomAgentPetRequest petInput(String prompt) {
+        return new ComposeCustomAgentPetRequest(
                 UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
     }
 
@@ -553,8 +552,7 @@ class WorkspaceRbacPostgresTest {
                             com.freelanceops.backend.domain.agentrun.client.PetGenerationClient
                                             .Input
                                     input = call.getArgument(0);
-                            return new com.freelanceops.backend.domain.agentrun.client
-                                    .PetGenerationClient.Output(
+                            return new PetGenerationResponse(
                                     input.context().runId(),
                                     com.freelanceops.backend.domain.agentrun.dto.PetProfile
                                             .defaults()

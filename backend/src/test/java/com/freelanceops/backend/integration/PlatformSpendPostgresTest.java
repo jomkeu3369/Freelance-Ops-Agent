@@ -63,6 +63,7 @@ class PlatformSpendPostgresTest {
     @Autowired com.freelanceops.backend.domain.agentrun.service.FreeUsageService credits;
     @Autowired com.freelanceops.backend.domain.agentrun.service.AgentCostService costs;
     @Autowired com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository runs;
+    @Autowired com.freelanceops.backend.domain.agentrun.repository.AgentRunUsageRepository usages;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager manager;
     private TransactionTemplate tx;
@@ -286,6 +287,27 @@ class PlatformSpendPostgresTest {
                                     Boolean.class,
                                     runId))
                     .isEqualTo(!known);
+
+            // Read JSON written with the old DTO type through the new entity mapping.
+            String legacyCalls =
+                    new tools.jackson.databind.ObjectMapper().writeValueAsString(List.of(call));
+            jdbc.update(
+                    "UPDATE app.agent_run_usage SET provider_calls=CAST(? AS jsonb) WHERE agent_run_id=?",
+                    legacyCalls,
+                    runId);
+            var reloaded =
+                    tx.execute(
+                            s ->
+                                    usages.findByAgentRunIdAndWorkspaceId(runId, workspace)
+                                            .orElseThrow());
+            assertThat(
+                            reloaded.providerCalls().stream()
+                                    .map(
+                                            com.freelanceops.backend.domain.agentrun.dto.response
+                                                            .AgentRunView.ProviderCallUsage
+                                                    ::fromSnapshot)
+                                    .toList())
+                    .containsExactly(call);
         }
     }
 

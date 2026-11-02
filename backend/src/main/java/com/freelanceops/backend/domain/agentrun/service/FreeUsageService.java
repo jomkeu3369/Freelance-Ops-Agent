@@ -1,6 +1,9 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageModelRateResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 
@@ -42,53 +45,6 @@ public class FreeUsageService {
         }
     }
 
-    public record ModelRate(Provider provider, String model, int credits, boolean enabled) {}
-
-    public record Usage(
-            int limit,
-            int used,
-            int reserved,
-            int remaining,
-            Instant resetAt,
-            String period,
-            String timezone,
-            long epoch,
-            boolean canManage,
-            String unit,
-            String periodType,
-            List<ModelRate> modelRates,
-            Instant pricingUpdatedAt) {
-        public Usage(
-                int limit,
-                int used,
-                int reserved,
-                int remaining,
-                Instant resetAt,
-                String period,
-                String timezone,
-                long epoch,
-                boolean canManage) {
-            this(
-                    limit, used, reserved, remaining, resetAt, period, timezone, epoch, canManage,
-                    "CREDITS", "WEEKLY", List.of(), null);
-        }
-    }
-
-    public record Settings(
-            int limit,
-            int maxLimit,
-            long epoch,
-            Instant updatedAt,
-            Instant lastResetAt,
-            List<ModelRate> modelRates,
-            String unit,
-            String periodType) {
-        public Settings(
-                int limit, int maxLimit, long epoch, Instant updatedAt, Instant lastResetAt) {
-            this(limit, maxLimit, epoch, updatedAt, lastResetAt, List.of(), "CREDITS", "WEEKLY");
-        }
-    }
-
     private record Reservation(
             UUID userId, LocalDate period, long epoch, String status, int credits) {}
 
@@ -106,8 +62,8 @@ public class FreeUsageService {
             Provider provider,
             String model,
             StartAgentRunRequest.CreditQuote quote) {
-        Settings settings = settings(false);
-        ModelRate rate = requireRate(settings, provider, model);
+        FreeUsageSettingsResponse settings = settings(false);
+        FreeUsageModelRateResponse rate = requireRate(settings, provider, model);
         if (quote == null || quote.pricingUpdatedAt() == null) {
             throw new CreditQuoteException(
                     HttpStatus.PRECONDITION_REQUIRED,
@@ -124,7 +80,7 @@ public class FreeUsageService {
         reserveWithSettings(user, runId, provider, model, settings);
     }
 
-    private static ModelRate requireRate(Settings settings, Provider provider, String model) {
+    private static FreeUsageModelRateResponse requireRate(FreeUsageSettingsResponse settings, Provider provider, String model) {
         return settings.modelRates().stream()
                 .filter(
                         rate ->
@@ -141,9 +97,9 @@ public class FreeUsageService {
     }
 
     private void reserveWithSettings(
-            UUID user, UUID runId, Provider provider, String model, Settings settings) {
+            UUID user, UUID runId, Provider provider, String model, FreeUsageSettingsResponse settings) {
         requireActiveUser(user);
-        ModelRate rate = requireRate(settings, provider, model);
+        FreeUsageModelRateResponse rate = requireRate(settings, provider, model);
         Period period = currentPeriod();
         jdbc.update(
                 "INSERT INTO app.weekly_credit_bucket(user_id, period, epoch) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
@@ -266,19 +222,19 @@ public class FreeUsageService {
     }
 
     @Transactional
-    public Usage current(UUID user) {
+    public FreeUsageResponse current(UUID user) {
         requireActiveUser(user);
         return usage(user, settings(false), currentPeriod(), canManage(user));
     }
 
     @Transactional
-    public Settings adminSettings(UUID user) {
+    public FreeUsageSettingsResponse adminSettings(UUID user) {
         requireAdmin(user);
         return settings(false);
     }
 
     @Transactional
-    public Settings changeLimit(
+    public FreeUsageSettingsResponse changeLimit(
             UUID actor, int limit, long expectedEpoch, Instant expectedUpdatedAt) {
         requireAdmin(actor);
         if (limit < 0 || limit > MAX_LIMIT || expectedUpdatedAt == null) {
@@ -286,14 +242,14 @@ public class FreeUsageService {
                     HttpStatus.BAD_REQUEST,
                     "Weekly credit limit must be a whole number from 0 to " + MAX_LIMIT);
         }
-        Settings before = settings(true);
+        FreeUsageSettingsResponse before = settings(true);
         requireVersion(before, expectedEpoch);
         if (!before.updatedAt().equals(expectedUpdatedAt)) throw changed();
         if (limit == before.limit()) return before;
         jdbc.update(
                 "UPDATE app.weekly_credit_settings SET weekly_limit = ?, updated_at = GREATEST(clock_timestamp(), updated_at + INTERVAL '1 microsecond') WHERE id = 1",
                 limit);
-        Settings after = settings(false);
+        FreeUsageSettingsResponse after = settings(false);
         audit(
                 actor,
                 "CHANGE_LIMIT",
@@ -306,14 +262,14 @@ public class FreeUsageService {
     }
 
     @Transactional
-    public Settings resetAll(
+    public FreeUsageSettingsResponse resetAll(
             UUID actor, String confirmation, long expectedEpoch, Instant expectedUpdatedAt) {
         requireAdmin(actor);
         if (!RESET_CONFIRMATION.equals(confirmation)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Explicit reset confirmation is required");
         }
-        Settings before = settings(true);
+        FreeUsageSettingsResponse before = settings(true);
         requireVersion(before, expectedEpoch);
         if (expectedUpdatedAt == null || !before.updatedAt().equals(expectedUpdatedAt))
             throw changed();
@@ -324,7 +280,7 @@ public class FreeUsageService {
             UPDATE app.weekly_credit_settings SET epoch = epoch + 1, last_reset_at = clock_timestamp(),
             updated_at = GREATEST(clock_timestamp(), updated_at + INTERVAL '1 microsecond') WHERE id = 1
             """);
-        Settings after = settings(false);
+        FreeUsageSettingsResponse after = settings(false);
         audit(
                 actor,
                 "RESET_ALL",
@@ -343,13 +299,13 @@ public class FreeUsageService {
         return Period.at(now.toInstant());
     }
 
-    private Settings settings(boolean write) {
+    private FreeUsageSettingsResponse settings(boolean write) {
         var base =
                 jdbc.queryForObject(
                         "SELECT weekly_limit, epoch, updated_at, last_reset_at FROM app.weekly_credit_settings WHERE id = 1 "
                                 + (write ? "FOR UPDATE" : "FOR SHARE"),
                         (row, n) ->
-                                new Settings(
+                                new FreeUsageSettingsResponse(
                                         row.getInt(1),
                                         MAX_LIMIT,
                                         row.getLong(2),
@@ -358,16 +314,16 @@ public class FreeUsageService {
                                                 ? null
                                                 : row.getTimestamp(4).toInstant()));
         if (base == null) throw new IllegalStateException("Weekly credit settings unavailable");
-        List<ModelRate> rates =
+        List<FreeUsageModelRateResponse> rates =
                 jdbc.query(
                         "SELECT provider, model, credits, enabled FROM app.weekly_credit_model_rate ORDER BY credits, model",
                         (row, n) ->
-                                new ModelRate(
+                                new FreeUsageModelRateResponse(
                                         Provider.valueOf(row.getString(1)),
                                         row.getString(2),
                                         row.getInt(3),
                                         row.getBoolean(4)));
-        return new Settings(
+        return new FreeUsageSettingsResponse(
                 base.limit(),
                 MAX_LIMIT,
                 base.epoch(),
@@ -378,7 +334,7 @@ public class FreeUsageService {
                 "WEEKLY");
     }
 
-    private Usage usage(UUID user, Settings settings, Period period, boolean canManage) {
+    private FreeUsageResponse usage(UUID user, FreeUsageSettingsResponse settings, Period period, boolean canManage) {
         List<int[]> buckets =
                 jdbc.query(
                         "SELECT used, reserved FROM app.weekly_credit_bucket WHERE user_id = ? AND period = ? AND epoch = ?",
@@ -388,7 +344,7 @@ public class FreeUsageService {
                         settings.epoch());
         int used = buckets.isEmpty() ? 0 : buckets.getFirst()[0];
         int reserved = buckets.isEmpty() ? 0 : buckets.getFirst()[1];
-        return new Usage(
+        return new FreeUsageResponse(
                 settings.limit(),
                 used,
                 reserved,
@@ -405,7 +361,7 @@ public class FreeUsageService {
     }
 
     @Transactional
-    public Settings changeModelRate(
+    public FreeUsageSettingsResponse changeModelRate(
             UUID actor,
             Provider provider,
             String model,
@@ -423,10 +379,10 @@ public class FreeUsageService {
                     HttpStatus.BAD_REQUEST,
                     "Model credits must be a whole number from 1 to " + MAX_LIMIT);
         }
-        Settings before = settings(true);
+        FreeUsageSettingsResponse before = settings(true);
         requireVersion(before, expectedEpoch);
         if (!before.updatedAt().equals(expectedUpdatedAt)) throw changed();
-        ModelRate old =
+        FreeUsageModelRateResponse old =
                 before.modelRates().stream()
                         .filter(rate -> rate.provider() == provider && rate.model().equals(model))
                         .findFirst()
@@ -444,7 +400,7 @@ public class FreeUsageService {
                 model);
         jdbc.update(
                 "UPDATE app.weekly_credit_settings SET updated_at = GREATEST(clock_timestamp(), updated_at + INTERVAL '1 microsecond') WHERE id = 1");
-        Settings after = settings(false);
+        FreeUsageSettingsResponse after = settings(false);
         audit(
                 actor,
                 "CHANGE_MODEL",
@@ -500,8 +456,8 @@ public class FreeUsageService {
             String target,
             String previousValue,
             String newValue,
-            Settings before,
-            Settings after) {
+            FreeUsageSettingsResponse before,
+            FreeUsageSettingsResponse after) {
         jdbc.update(
                 """
             INSERT INTO app.weekly_credit_admin_audit
@@ -517,7 +473,7 @@ public class FreeUsageService {
                 after.epoch());
     }
 
-    private static void requireVersion(Settings settings, long expectedEpoch) {
+    private static void requireVersion(FreeUsageSettingsResponse settings, long expectedEpoch) {
         if (settings.epoch() != expectedEpoch) throw changed();
     }
 

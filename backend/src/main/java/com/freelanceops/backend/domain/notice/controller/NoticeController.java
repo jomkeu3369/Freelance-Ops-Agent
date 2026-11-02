@@ -1,5 +1,14 @@
 package com.freelanceops.backend.domain.notice.controller;
 
+import com.freelanceops.backend.domain.notice.dto.request.ConfirmNoticeCampaignRequest;
+import com.freelanceops.backend.domain.notice.dto.request.CreateNoticeRequest;
+import com.freelanceops.backend.domain.notice.dto.request.PrepareNoticeCampaignRequest;
+import com.freelanceops.backend.domain.notice.dto.request.PublishNoticeRequest;
+import com.freelanceops.backend.domain.notice.dto.request.ReviewNoticeRequest;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeCampaignResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeDashboardResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeDispatchResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeResponse;
 import com.freelanceops.backend.domain.notice.service.NoticeService;
 
 import jakarta.validation.Valid;
@@ -10,7 +19,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,17 +31,17 @@ public class NoticeController {
     }
 
     @GetMapping("/api/v2/notices")
-    public List<NoticeService.Notice> published() {
+    public List<NoticeResponse> published() {
         return service.published();
     }
 
     @GetMapping("/api/v2/admin/notices")
-    public NoticeService.Dashboard dashboard(Authentication auth) {
+    public NoticeDashboardResponse dashboard(Authentication auth) {
         return service.dashboard(user(auth));
     }
 
     @PostMapping("/api/v2/admin/notices")
-    public NoticeService.Notice create(@Valid @RequestBody Draft body, Authentication auth) {
+    public NoticeResponse create(@Valid @RequestBody CreateNoticeRequest body, Authentication auth) {
         return service.create(
                 user(auth),
                 body.kind(),
@@ -44,32 +52,32 @@ public class NoticeController {
     }
 
     @PostMapping("/api/v2/admin/notices/{id}/review")
-    public NoticeService.Notice review(
-            @PathVariable UUID id, @Valid @RequestBody Revision body, Authentication auth) {
+    public NoticeResponse review(
+            @PathVariable UUID id, @Valid @RequestBody ReviewNoticeRequest body, Authentication auth) {
         return service.review(user(auth), id, body.expectedRevision());
     }
 
     @PostMapping("/api/v2/admin/notices/{id}/publish")
-    public NoticeService.Notice publish(
-            @PathVariable UUID id, @Valid @RequestBody Publication body, Authentication auth) {
+    public NoticeResponse publish(
+            @PathVariable UUID id, @Valid @RequestBody PublishNoticeRequest body, Authentication auth) {
         return service.publish(
                 user(auth), id, body.expectedRevision(), body.publishAt(), body.confirmation());
     }
 
     @PostMapping("/api/v2/admin/notice-campaigns")
-    public NoticeService.Campaign prepare(
-            @Valid @RequestBody Preparation body, Authentication auth) {
+    public NoticeCampaignResponse prepare(
+            @Valid @RequestBody PrepareNoticeCampaignRequest body, Authentication auth) {
         return service.prepare(user(auth), body.noticeId());
     }
 
     @PostMapping("/api/v2/admin/notice-campaigns/{id}/test")
-    public NoticeService.Campaign test(@PathVariable UUID id, Authentication auth) {
+    public NoticeCampaignResponse test(@PathVariable UUID id, Authentication auth) {
         return service.test(user(auth), id);
     }
 
     @PostMapping("/api/v2/admin/notice-campaigns/{id}/confirm")
-    public NoticeService.Campaign confirm(
-            @PathVariable UUID id, @Valid @RequestBody Confirmation body, Authentication auth) {
+    public NoticeCampaignResponse confirm(
+            @PathVariable UUID id, @Valid @RequestBody ConfirmNoticeCampaignRequest body, Authentication auth) {
         return service.confirm(
                 user(auth),
                 id,
@@ -80,36 +88,14 @@ public class NoticeController {
     }
 
     @PostMapping("/api/v2/admin/notice-campaigns/{id}/cancel")
-    public NoticeService.Campaign cancel(@PathVariable UUID id, Authentication auth) {
+    public NoticeCampaignResponse cancel(@PathVariable UUID id, Authentication auth) {
         return service.cancel(user(auth), id);
     }
 
     @PostMapping("/api/v2/admin/notice-campaigns/{id}/dispatch-next")
-    public NoticeService.Dispatch dispatch(@PathVariable UUID id, Authentication auth) {
+    public NoticeDispatchResponse dispatch(@PathVariable UUID id, Authentication auth) {
         return service.dispatchNext(user(auth), id);
     }
-
-    public record Draft(
-            @NotBlank @Size(max = 24) String kind,
-            @NotBlank @Size(max = 200) String title,
-            @NotNull @Size(max = 20000) String body,
-            @NotBlank @Size(max = 80) String versionLabel,
-            @NotNull Instant effectiveAt) {}
-
-    public record Revision(@NotNull @Min(0) Long expectedRevision) {}
-
-    public record Publication(
-            @NotNull @Min(0) Long expectedRevision,
-            @NotNull Instant publishAt,
-            @NotBlank String confirmation) {}
-
-    public record Preparation(@NotNull UUID noticeId) {}
-
-    public record Confirmation(
-            @NotBlank @Pattern(regexp = "[a-f0-9]{64}") String contentHash,
-            @NotBlank @Pattern(regexp = "[a-f0-9]{64}") String recipientHash,
-            @NotNull @Min(0) Integer recipientCount,
-            @NotBlank String confirmation) {}
 
     private static UUID user(Authentication auth) {
         if (auth == null || !auth.isAuthenticated())

@@ -1,7 +1,13 @@
 package com.freelanceops.backend.domain.identity.service;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
-import com.freelanceops.backend.domain.identity.dto.response.AdminMemberResponse.*;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberAuditResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberLoginResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberSummaryResponse;
+import com.freelanceops.backend.domain.identity.dto.response.Page;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,7 +56,7 @@ public class AdminMemberService {
         """;
 
     @Transactional
-    public Page<Member> members(UUID actor, String query, String status, int page, int size) {
+    public Page<AdminMemberResponse> members(UUID actor, String query, String status, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
         String q = query == null ? "" : query.strip();
@@ -94,7 +100,7 @@ public class AdminMemberService {
     }
 
     @Transactional
-    public Member member(UUID actor, UUID userId) {
+    public AdminMemberResponse member(UUID actor, UUID userId) {
         requireAdmin(actor);
         return jdbc
                 .query(
@@ -107,14 +113,14 @@ public class AdminMemberService {
     }
 
     @Transactional
-    public PlatformUsageService.Usage usage(UUID actor, UUID userId) {
+    public PlatformUsageResponse usage(UUID actor, UUID userId) {
         requireAdmin(actor);
         requireMember(userId);
         return usage.snapshot(userId);
     }
 
     @Transactional
-    public PlatformUsageService.History usageHistory(
+    public PlatformUsageHistoryResponse usageHistory(
             UUID actor, UUID userId, String cursor, int limit) {
         requireAdmin(actor);
         if (limit < 1 || limit > 100 || (cursor != null && cursor.length() > 256))
@@ -133,7 +139,7 @@ public class AdminMemberService {
     }
 
     @Transactional
-    public Summary summary(UUID actor) {
+    public AdminMemberSummaryResponse summary(UUID actor) {
         requireAdmin(actor);
         return jdbc.queryForObject(
                 """
@@ -145,7 +151,7 @@ public class AdminMemberService {
             FROM app.user_account
             """,
                 (row, n) ->
-                        new Summary(
+                        new AdminMemberSummaryResponse(
                                 row.getLong("total"),
                                 row.getLong("active"),
                                 row.getLong("pending"),
@@ -155,7 +161,7 @@ public class AdminMemberService {
     }
 
     @Transactional
-    public Page<Login> logins(UUID actor, UUID userId, int page, int size) {
+    public Page<AdminMemberLoginResponse> logins(UUID actor, UUID userId, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
         String where = userId == null ? "" : " WHERE user_id=?";
@@ -172,7 +178,7 @@ public class AdminMemberService {
                                 + where
                                 + " ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?",
                         (row, n) ->
-                                new Login(
+                                new AdminMemberLoginResponse(
                                         row.getObject("id", UUID.class),
                                         row.getObject("user_id", UUID.class),
                                         row.getString("method"),
@@ -182,7 +188,7 @@ public class AdminMemberService {
     }
 
     @Transactional
-    public Page<Audit> audits(UUID actor, int page, int size) {
+    public Page<AdminMemberAuditResponse> audits(UUID actor, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
         long total = jdbc.queryForObject("SELECT count(*) FROM " + AUDIT, Long.class);
@@ -192,7 +198,7 @@ public class AdminMemberService {
                                 + AUDIT
                                 + " ORDER BY created_at DESC,source,id DESC LIMIT ? OFFSET ?",
                         (row, n) ->
-                                new Audit(
+                                new AdminMemberAuditResponse(
                                         row.getObject("id", UUID.class),
                                         row.getString("source"),
                                         row.getObject("actor_user_id", UUID.class),
@@ -231,8 +237,8 @@ public class AdminMemberService {
                 (row, n) -> instant(row, "recording_started_at"));
     }
 
-    private static Member member(ResultSet row) throws SQLException {
-        return new Member(
+    private static AdminMemberResponse member(ResultSet row) throws SQLException {
+        return new AdminMemberResponse(
                 row.getObject("id", UUID.class),
                 row.getString("email"),
                 row.getString("display_name"),
