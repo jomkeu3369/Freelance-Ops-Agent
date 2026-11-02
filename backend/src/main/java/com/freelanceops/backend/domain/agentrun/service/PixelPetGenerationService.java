@@ -6,7 +6,6 @@ import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgent
 import com.freelanceops.backend.domain.agentrun.client.dto.response.PixelPetGenerationResult;
 import com.freelanceops.backend.domain.agentrun.dto.PetPreferences;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
-import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.GeneratePixelPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
@@ -14,6 +13,8 @@ import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentR
 import com.freelanceops.backend.domain.agentrun.dto.response.PixelPetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPixelPetGenerationRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPixelPetGenerationRepository.Stored;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -23,7 +24,6 @@ import jakarta.validation.Validator;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,16 +52,7 @@ public class PixelPetGenerationService {
 
     private record Prepared(PlatformBudget budget, PetProfile previous) {}
 
-    private record Stored(
-            PixelPetGenerationResponse value,
-            UUID project,
-            String fingerprint,
-            Instant updatedAt,
-            String model,
-            ComposeCustomAgentPetRequest input,
-            PetProfile previous) {}
-
-    private final JdbcTemplate jdbc;
+    private final JdbcPixelPetGenerationRepository repository;
     private final ObjectMapper mapper;
     private final Validator validator;
     private final CustomAgentPetService pets;
@@ -76,7 +67,7 @@ public class PixelPetGenerationService {
     private final ModelSelection model;
 
     public PixelPetGenerationService(
-            JdbcTemplate jdbc,
+            JdbcPixelPetGenerationRepository repository,
             ObjectMapper mapper,
             Validator validator,
             CustomAgentPetService pets,
@@ -89,7 +80,7 @@ public class PixelPetGenerationService {
             DelegationTokenIssuer tokens,
             PlatformTransactionManager transactions,
             @Value("${app.pets.generation-model:gpt-6.1-sol}") String model) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.mapper = mapper;
         this.validator = validator;
         this.pets = pets;
@@ -105,7 +96,8 @@ public class PixelPetGenerationService {
         PlatformSpendTariff.validateSelection(this.model);
     }
 
-    public PixelPetGenerationResponse generate(UUID user, UUID workspace, GeneratePixelPetRequest request) {
+    public PixelPetGenerationResponse generate(
+            UUID user, UUID workspace, GeneratePixelPetRequest request) {
         authorization.authorize(user, workspace);
         var input = request.input();
         if (input.generationId() != null)
@@ -125,10 +117,7 @@ public class PixelPetGenerationService {
         var prepared =
                 transaction.execute(
                         status -> {
-                            jdbc.query(
-                                    "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-                                    (row, n) -> 0,
-                                    workspace + ":pixel-pet:" + user);
+                            repository.lockGeneration(workspace + ":pixel-pet:" + user);
                             var existing = find(user, workspace, id);
                             if (existing != null) {
                                 if (!existing.fingerprint().equals(fingerprint)
@@ -136,36 +125,14 @@ public class PixelPetGenerationService {
                                     throw failure(HttpStatus.CONFLICT, "PET_REQUEST_REUSED");
                                 return null;
                             }
-                            if (Boolean.TRUE.equals(
-                                    jdbc.queryForObject(
-                                            "SELECT EXISTS (SELECT 1 FROM"
-                                                + " app.platform_spend_reservation WHERE run_id=?)",
-                                            Boolean.class,
-                                            id)))
+                            if (Boolean.TRUE.equals(repository.hasSpendReservation(id)))
                                 throw failure(HttpStatus.CONFLICT, "PET_ID_UNAVAILABLE");
                             pets.checkGenerationCapacity(user, workspace, input);
                             PetProfile previous = pets.generationBase(user, workspace, input);
-                            Long count =
-                                    jdbc.queryForObject(
-                                            "SELECT count(*) FROM app.pet_generation WHERE"
-                                                + " workspace_id=? AND user_id=? AND created_at >="
-                                                + " (date_trunc('day', CURRENT_TIMESTAMP AT TIME"
-                                                + " ZONE 'UTC') AT TIME ZONE 'UTC')",
-                                            Long.class,
-                                            workspace,
-                                            user);
+                            Long count = repository.countToday(workspace, user);
                             if (count != null && count >= 20)
                                 throw failure(HttpStatus.TOO_MANY_REQUESTS, "PET_DAILY_LIMIT");
-                            Long pending =
-                                    jdbc.queryForObject(
-                                            "SELECT count(*) FROM app.pet_generation WHERE"
-                                                + " workspace_id=? AND user_id=? AND request_hash"
-                                                + " IS NOT NULL AND status='REQUESTED' AND"
-                                                + " updated_at > clock_timestamp() - interval '90"
-                                                + " seconds'",
-                                            Long.class,
-                                            workspace,
-                                            user);
+                            Long pending = repository.countMatchingRequests(workspace, user);
                             if (pending != null && pending > 0)
                                 throw failure(HttpStatus.CONFLICT, "PET_GENERATION_IN_PROGRESS");
                             if (previous != null && previous.preferences().requests().size() >= 6)
@@ -173,11 +140,7 @@ public class PixelPetGenerationService {
                                         HttpStatus.UNPROCESSABLE_CONTENT,
                                         "PET_PREFERENCE_HISTORY_FULL");
                             int inserted =
-                                    jdbc.update(
-                                            """
-                                            INSERT INTO app.pet_generation(id,workspace_id,user_id,provider,model,project_id,pet_id,expected_revision,request_hash,request_json,previous_json)
-                                            VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING
-                                            """,
+                                    repository.insertGeneration(
                                             id,
                                             workspace,
                                             user,
@@ -225,14 +188,7 @@ public class PixelPetGenerationService {
         } catch (RuntimeException error) {
             // 같은 식별자는 실패 후에도 재호출하지 않는다. 모델 응답이 불명확하면 금액 예약도 유지한다.
             String state = error instanceof ResourceAccessException ? "UNKNOWN" : "FAILED";
-            jdbc.update(
-                    "UPDATE app.pet_generation SET"
-                        + " status=?,error_code='PET_GENERATION_FAILED',updated_at=clock_timestamp()"
-                        + " WHERE id=? AND workspace_id=? AND user_id=? AND status='REQUESTED'",
-                    state,
-                    id,
-                    workspace,
-                    user);
+            repository.failGeneration(state, id, workspace, user);
         }
         return get(user, workspace, id);
     }
@@ -267,11 +223,7 @@ public class PixelPetGenerationService {
                 || report.providerCalls() == null
                 || report.providerCalls().size() != report.modelCalls())
             throw failure(HttpStatus.FORBIDDEN, "PET_USAGE_BINDING_MISMATCH");
-        var attempts =
-                jdbc.query(
-                        "SELECT call_id FROM app.platform_provider_attempt WHERE run_id=?",
-                        (row, n) -> row.getObject(1, UUID.class),
-                        id);
+        var attempts = repository.findAttemptIds(id);
         for (var call : report.providerCalls()) {
             if (call.provider() != Provider.OPENAI
                     || !stored.model().equals(call.model())
@@ -324,8 +276,7 @@ public class PixelPetGenerationService {
     }
 
     @Transactional
-    public void complete(
-            UUID id, PixelPetGenerationResult output, GenerationPrincipal principal) {
+    public void complete(UUID id, PixelPetGenerationResult output, GenerationPrincipal principal) {
         if (output == null) throw failure(HttpStatus.BAD_REQUEST, "PET_INVALID_GENERATION");
         recordUsage(id, output.usage(), principal);
         persistResult(principal.initiatedBy(), principal.workspaceId(), id, output);
@@ -377,10 +328,7 @@ public class PixelPetGenerationService {
                 throw failure(HttpStatus.CONFLICT, "PET_REQUEST_REUSED");
             return;
         }
-        jdbc.update(
-                "UPDATE app.pet_generation SET"
-                    + " status='COMPLETED',profile_json=?,input_tokens=?,output_tokens=?,error_code=NULL,updated_at=clock_timestamp()"
-                    + " WHERE id=? AND workspace_id=? AND user_id=?",
+        repository.completeGeneration(
                 serialized,
                 output.usage().inputTokens(),
                 output.usage().outputTokens(),
@@ -394,38 +342,7 @@ public class PixelPetGenerationService {
     }
 
     private Stored find(UUID user, UUID workspace, UUID id, boolean lock) {
-        return jdbc
-                .query(
-                        "SELECT"
-                            + " project_id,request_hash,status,profile_json,error_code,updated_at,model,request_json,previous_json"
-                            + " FROM app.pet_generation WHERE id=? AND workspace_id=? AND user_id=?"
-                            + " AND request_hash IS NOT NULL"
-                                + (lock ? " FOR UPDATE" : ""),
-                        (row, n) ->
-                                new Stored(
-                                        new PixelPetGenerationResponse(
-                                                id,
-                                                row.getString(3),
-                                                row.getString(4) == null
-                                                        ? null
-                                                        : mapper.readValue(
-                                                                row.getString(4), PetProfile.class),
-                                                row.getString(5)),
-                                        row.getObject(1, UUID.class),
-                                        row.getString(2),
-                                        row.getTimestamp(6).toInstant(),
-                                        row.getString(7),
-                                        mapper.readValue(
-                                                row.getString(8),
-                                                ComposeCustomAgentPetRequest.class),
-                                        row.getString(9) == null
-                                                ? null
-                                                : mapper.readValue(
-                                                        row.getString(9), PetProfile.class)),
-                        id,
-                        workspace,
-                        user)
-                .stream()
+        return repository.findGeneration(id, workspace, user, lock).stream()
                 .findFirst()
                 .orElse(null);
     }

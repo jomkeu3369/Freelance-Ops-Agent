@@ -4,13 +4,13 @@ import com.freelanceops.backend.domain.agentrun.client.PetGenerationClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.client.dto.response.PetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPetGenerationRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,7 +26,7 @@ public class PetGenerationService {
     private final ProjectRepository projects;
     private final DelegationTokenIssuer tokens;
     private final PetGenerationClient client;
-    private final JdbcTemplate jdbc;
+    private final JdbcPetGenerationRepository repository;
     private final TransactionTemplate transaction;
 
     public PetGenerationService(
@@ -36,7 +36,7 @@ public class PetGenerationService {
             ProjectRepository projects,
             DelegationTokenIssuer tokens,
             PetGenerationClient client,
-            JdbcTemplate jdbc,
+            JdbcPetGenerationRepository repository,
             PlatformTransactionManager transactions) {
         this.connections = connections;
         this.profiles = profiles;
@@ -44,7 +44,7 @@ public class PetGenerationService {
         this.projects = projects;
         this.tokens = tokens;
         this.client = client;
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.transaction = new TransactionTemplate(transactions);
     }
 
@@ -71,21 +71,12 @@ public class PetGenerationService {
         // 여러 인스턴스의 예약을 직렬화한다. 실패했거나 진행 중인 호출도 한도에 포함한다.
         transaction.executeWithoutResult(
                 status -> {
-                    jdbc.query(
-                            "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-                            (row, n) -> 0,
-                            workspace + ":pet:" + user);
-                    Long count =
-                            jdbc.queryForObject(
-                                    "SELECT count(*) FROM app.pet_generation WHERE workspace_id = ? AND user_id = ? AND created_at >= (date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')",
-                                    Long.class,
-                                    workspace,
-                                    user);
+                    repository.lockGeneration(workspace + ":pet:" + user);
+                    Long count = repository.countToday(workspace, user);
                     if (count != null && count >= 20)
                         throw new ResponseStatusException(
                                 HttpStatus.TOO_MANY_REQUESTS, "Daily pet generation limit reached");
-                    jdbc.update(
-                            "INSERT INTO app.pet_generation(id, workspace_id, user_id, provider, model, credential_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    repository.insertGeneration(
                             id,
                             workspace,
                             user,
@@ -113,20 +104,11 @@ public class PetGenerationService {
                     || result.outputTokens() < 0)
                 throw new IllegalStateException("Invalid pet generation response");
             profiles.validate(result.profile());
-            jdbc.update(
-                    "UPDATE app.pet_generation SET status = 'COMPLETED', input_tokens = ?, output_tokens = ? WHERE id = ? AND workspace_id = ? AND user_id = ?",
-                    result.inputTokens(),
-                    result.outputTokens(),
-                    id,
-                    workspace,
-                    user);
+            repository.completeGeneration(
+                    result.inputTokens(), result.outputTokens(), id, workspace, user);
             return result;
         } catch (RuntimeException error) {
-            jdbc.update(
-                    "UPDATE app.pet_generation SET status = 'FAILED' WHERE id = ? AND workspace_id = ? AND user_id = ?",
-                    id,
-                    workspace,
-                    user);
+            repository.failGeneration(id, workspace, user);
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     "Pet generation failed; your saved profile is unchanged");

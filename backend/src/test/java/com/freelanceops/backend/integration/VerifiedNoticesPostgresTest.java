@@ -12,6 +12,7 @@ import com.freelanceops.backend.domain.identity.service.EmailVerificationService
 import com.freelanceops.backend.domain.identity.service.IdentityException;
 import com.freelanceops.backend.domain.notice.dto.response.NoticeCampaignResponse;
 import com.freelanceops.backend.domain.notice.dto.response.NoticeResponse;
+import com.freelanceops.backend.domain.notice.repository.JdbcNoticeRepository;
 import com.freelanceops.backend.domain.notice.service.NoticeService;
 import com.freelanceops.backend.global.mail.OperationalMailTransport;
 
@@ -728,7 +729,7 @@ class VerifiedNoticesPostgresTest {
         notices.test(admin, campaign.id());
         confirm(campaign);
         mail.messages.clear();
-        var flagOff = new NoticeService(jdbc, mail, 200, false);
+        var flagOff = new NoticeService(new JdbcNoticeRepository(jdbc), mail, 200, false);
         var outcome =
                 new org.springframework.transaction.support.TransactionTemplate(transactionManager)
                         .execute(status -> flagOff.dispatchNext(admin, campaign.id()));

@@ -1,11 +1,11 @@
 package com.freelanceops.backend.domain.identity.service;
 
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.freelanceops.backend.domain.identity.repository.JdbcLoginActivityRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,19 +17,14 @@ public class LoginActivityService {
         REGISTRATION
     }
 
-    private final JdbcTemplate jdbc;
+    private final JdbcLoginActivityRepository repository;
 
-    public LoginActivityService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    public LoginActivityService(JdbcLoginActivityRepository repository) {
+        this.repository = repository;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(UUID userId, Method method, Instant occurredAt) {
-        jdbc.update(
-                "INSERT INTO app.user_login_event(id,user_id,method,occurred_at) VALUES (?,?,?,?)",
-                UUID.randomUUID(),
-                userId,
-                method.name(),
-                Timestamp.from(occurredAt));
+        repository.insertActivity(UUID.randomUUID(), userId, method.name(), occurredAt);
     }
 }

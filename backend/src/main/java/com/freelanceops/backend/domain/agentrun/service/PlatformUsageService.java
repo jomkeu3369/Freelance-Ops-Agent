@@ -3,17 +3,17 @@ package com.freelanceops.backend.domain.agentrun.service;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ExternalToolCallUsage;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
-import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageEntryResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageModelResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformUsageRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformUsageRepository.Hold;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +24,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -41,29 +39,18 @@ public class PlatformUsageService {
                     AgentRunStatus.PARTIAL,
                     AgentRunStatus.FAILED,
                     AgentRunStatus.CANCELLED);
-    private final JdbcTemplate jdbc;
+    private final JdbcPlatformUsageRepository repository;
     private final ObjectMapper mapper;
     private final boolean enabled;
 
     public PlatformUsageService(
-            JdbcTemplate jdbc,
+            JdbcPlatformUsageRepository repository,
             ObjectMapper mapper,
             @Value("${platform.ai.spend.enabled:false}") boolean enabled) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.mapper = mapper;
         this.enabled = enabled;
     }
-
-    private record Hold(
-            UUID user,
-            BigDecimal cap,
-            String version,
-            LocalDate day,
-            LocalDate week,
-            BigDecimal settled,
-            BigDecimal reserved,
-            boolean closed,
-            Instant observed) {}
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void synchronize(AgentRunEntity run, AgentRunView view) {
@@ -96,36 +83,16 @@ public class PlatformUsageService {
         if (usage == null || !operationId.equals(usage.platformReservationId()))
             throw new IllegalArgumentException("Usage reservation identity mismatch");
         // 예약과 같은 순서로 잠가 반환 처리와 새 예약을 직렬화한다.
-        jdbc.queryForObject(
-                "SELECT id FROM app.platform_spend_settings WHERE id=1 FOR UPDATE", Integer.class);
-        var rows =
-                jdbc.query(
-                        """
-                        SELECT r.user_id,r.max_cost_usd,r.tariff_version,r.day_period,r.week_period,
-                               s.settled_usd,s.reserved_usd,s.execution_closed,s.observed_at
-                        FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
-                        WHERE r.run_id=? FOR UPDATE OF s
-                        """,
-                        (r, n) ->
-                                new Hold(
-                                        r.getObject(1, UUID.class),
-                                        r.getBigDecimal(2),
-                                        r.getString(3),
-                                        r.getDate(4).toLocalDate(),
-                                        r.getDate(5).toLocalDate(),
-                                        r.getBigDecimal(6),
-                                        r.getBigDecimal(7),
-                                        r.getBoolean(8),
-                                        r.getTimestamp(9) == null
-                                                ? null
-                                                : r.getTimestamp(9).toInstant()),
-                        operationId);
+        repository.lockSettings();
+        var rows = repository.findSettlement(operationId);
         if (rows.isEmpty()) throw new IllegalArgumentException("Usage reservation is missing");
         Hold hold = rows.getFirst();
         if (!hold.user().equals(user) || !hold.version().equals(usage.tariffVersion()))
             throw new IllegalArgumentException("Usage tariff or account mismatch");
-        if (!usage.externalToolCalls().isEmpty() && !PlatformSpendTariff.VERSION.equals(hold.version()))
-            throw new IllegalArgumentException("Reservation does not authorize external tool spending");
+        if (!usage.externalToolCalls().isEmpty()
+                && !PlatformSpendTariff.VERSION.equals(hold.version()))
+            throw new IllegalArgumentException(
+                    "Reservation does not authorize external tool spending");
         if (hold.observed() != null && observedAt.isBefore(hold.observed())) return;
         if (usage.providerCalls().size() != usage.modelCalls())
             return; // 사용량 정보가 불완전하면 예약 금액을 유지한다.
@@ -156,15 +123,8 @@ public class PlatformUsageService {
             }
             merged.put(call.callId(), call);
             int changed =
-                    jdbc.update(
-                            """
-                            INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)
-                            ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()
-                            WHERE platform_provider_attempt.run_id=EXCLUDED.run_id
-                            """,
-                            call.callId(),
-                            operationId,
-                            mapper.writeValueAsString(call));
+                    repository.upsertProviderAttempt(
+                            call.callId(), operationId, mapper.writeValueAsString(call));
             if (changed != 1) throw new IllegalArgumentException("Attempt belongs to another run");
         }
         BigDecimal settled = ZERO, unknown = ZERO;
@@ -195,16 +155,7 @@ public class PlatformUsageService {
         adjust("GLOBAL_DAY", GLOBAL, hold.day(), delta);
         adjust("GLOBAL_WEEK", GLOBAL, hold.week(), delta);
         adjust("ACCOUNT_WEEK", hold.user(), hold.week(), delta);
-        jdbc.update(
-                """
-                UPDATE app.platform_spend_settlement SET settled_usd=?,reserved_usd=?,execution_closed=?,
-                    observed_at=?,updated_at=clock_timestamp() WHERE run_id=?
-                """,
-                settled,
-                reserved,
-                closed,
-                Timestamp.from(observedAt),
-                operationId);
+        repository.updateSettlement(settled, reserved, closed, observedAt, operationId);
     }
 
     private static boolean sameUsage(ProviderCallUsage a, ProviderCallUsage b) {
@@ -216,47 +167,37 @@ public class PlatformUsageService {
 
     private void adjust(String scope, UUID subject, LocalDate period, BigDecimal delta) {
         if (delta.signum() == 0) return;
-        if (jdbc.update(
-                        """
-                        UPDATE app.platform_spend_bucket SET held_usd=held_usd+?
-                        WHERE scope=? AND subject_id=? AND period=? AND held_usd+? >= 0
-                        """,
-                        delta,
-                        scope,
-                        subject,
-                        Date.valueOf(period),
-                        delta)
-                != 1) throw new IllegalStateException("Monetary bucket is inconsistent");
+        if (repository.adjustBucket(delta, scope, subject, period) != 1)
+            throw new IllegalStateException("Monetary bucket is inconsistent");
     }
 
     private List<ProviderCallUsage> attempts(UUID run) {
-        return jdbc.query(
-                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? ORDER BY"
-                        + " call_id",
-                (row, n) -> mapper.readValue(row.getString(1), ProviderCallUsage.class),
-                run);
+        return repository.listProviderAttempts(run);
     }
 
-    private List<ExternalToolCallUsage> synchronizeTools(UUID run, List<ExternalToolCallUsage> incoming, boolean closed) {
+    private List<ExternalToolCallUsage> synchronizeTools(
+            UUID run, List<ExternalToolCallUsage> incoming, boolean closed) {
         Map<UUID, ExternalToolCallUsage> calls = new LinkedHashMap<>();
-        jdbc.query("SELECT payload::text FROM app.platform_external_tool_attempt WHERE run_id=?",
-                (row, index) -> mapper.readValue(row.getString(1), ExternalToolCallUsage.class), run)
-                .forEach(call -> calls.put(call.callId(), call));
+        repository.listExternalAttempts(run).forEach(call -> calls.put(call.callId(), call));
         for (var call : incoming) {
             ExternalToolSpend.validate(call);
             var prior = calls.get(call.callId());
             if (prior != null) {
-                if (!prior.provider().equals(call.provider()) || !prior.operation().equals(call.operation())
-                        || !prior.tariffVersion().equals(call.tariffVersion()) || prior.credits() != call.credits()
+                if (!prior.provider().equals(call.provider())
+                        || !prior.operation().equals(call.operation())
+                        || !prior.tariffVersion().equals(call.tariffVersion())
+                        || prior.credits() != call.credits()
                         || prior.reservedCostUsd().compareTo(call.reservedCostUsd()) != 0)
                     throw new IllegalArgumentException("External attempt identity changed");
                 if (prior.usageKnown()) continue;
-            } else if (closed) throw new IllegalArgumentException("Closed execution reported a new external attempt");
-            int changed = jdbc.update("INSERT INTO app.platform_external_tool_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)"
-                    + " ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()"
-                    + " WHERE platform_external_tool_attempt.run_id=EXCLUDED.run_id",
-                    call.callId(), run, mapper.writeValueAsString(call));
-            if (changed != 1) throw new IllegalArgumentException("External attempt belongs to another execution");
+            } else if (closed)
+                throw new IllegalArgumentException(
+                        "Closed execution reported a new external attempt");
+            int changed =
+                    repository.upsertExternalAttempt(
+                            call.callId(), run, mapper.writeValueAsString(call));
+            if (changed != 1)
+                throw new IllegalArgumentException("External attempt belongs to another execution");
             calls.put(call.callId(), call);
         }
         return List.copyOf(calls.values());
@@ -265,29 +206,11 @@ public class PlatformUsageService {
     @Transactional
     public PlatformUsageResponse snapshot(UUID userId) {
         Objects.requireNonNull(userId);
-        Instant now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class).toInstant();
+        Instant now = repository.databaseTime();
         var period = FreeUsageService.Period.at(now);
-        var settings =
-                jdbc.queryForObject(
-                        """
-                        SELECT account_week_usd, global_day_usd, global_week_usd FROM app.platform_spend_settings WHERE id=1 FOR SHARE
-                        """,
-                        (row, n) ->
-                                List.of(
-                                        row.getBigDecimal(1),
-                                        row.getBigDecimal(2),
-                                        row.getBigDecimal(3)));
+        var settings = repository.findBudgetLimits();
         BigDecimal limit = settings.getFirst();
-        var totals =
-                jdbc.queryForObject(
-                        """
-                        SELECT COALESCE(SUM(s.settled_usd),0), COALESCE(SUM(s.reserved_usd),0)
-                        FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
-                        WHERE r.user_id=? AND r.week_period=?
-                        """,
-                        (row, n) -> List.of(row.getBigDecimal(1), row.getBigDecimal(2)),
-                        userId,
-                        Date.valueOf(period.start()));
+        var totals = repository.findWeeklyTotals(userId, period.start());
         BigDecimal remaining = limit.subtract(totals.get(0)).subtract(totals.get(1)).max(ZERO);
         BigDecimal globalRemaining =
                 available(
@@ -297,42 +220,48 @@ public class PlatformUsageService {
                                 settings.get(1))
                         .min(available("GLOBAL_WEEK", GLOBAL, period.start(), settings.get(2)));
         List<PlatformUsageModelResponse> models =
-                jdbc.query(
-                        "SELECT model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER"
-                                + " BY model",
-                        (row, n) -> {
-                            String id = row.getString(1);
-                            boolean active = row.getBoolean(3);
-                            String reason =
-                                    !enabled
-                                            ? "SPENDING_DISABLED"
-                                            : (!active || row.getBigDecimal(2).signum() <= 0)
-                                                    ? "MODEL_DISABLED"
-                                                    : (id.equals("gpt-5.6-sol")
-                                                                    && !now.isBefore(
-                                                                            PlatformSpendTariff
-                                                                                    .PROMOTION_REVIEW_AT))
-                                                            ? "TARIFF_REVIEW_REQUIRED"
-                                                            : remaining.signum() <= 0
-                                                                    ? "ACCOUNT_BUDGET_EXHAUSTED"
-                                                                    : globalRemaining.signum() <= 0
-                                                                            ? "GLOBAL_BUDGET_EXHAUSTED"
-                                                                            : null;
-                            var efforts =
-                                    List.of("gpt-6.1-sol", "gpt-6-astra").contains(id)
-                                            ? List.of("LOW", "MEDIUM", "HIGH")
-                                            : List.of("NONE", "LOW", "MEDIUM", "HIGH");
-                            return new PlatformUsageModelResponse(
-                                    "OPENAI",
-                                    id,
-                                    true,
-                                    active,
-                                    efforts,
-                                    row.getBigDecimal(2),
-                                    reason == null,
-                                    reason,
-                                    false);
-                        });
+                repository.listModelCaps().stream()
+                        .map(
+                                cap -> {
+                                    String id = cap.model();
+
+                                    boolean active = cap.enabled();
+
+                                    String reason =
+                                            !enabled
+                                                    ? "SPENDING_DISABLED"
+                                                    : (!active || cap.maxRunUsd().signum() <= 0)
+                                                            ? "MODEL_DISABLED"
+                                                            : (id.equals("gpt-5.6-sol")
+                                                                            && !now.isBefore(
+                                                                                    PlatformSpendTariff
+                                                                                            .PROMOTION_REVIEW_AT))
+                                                                    ? "TARIFF_REVIEW_REQUIRED"
+                                                                    : remaining.signum() <= 0
+                                                                            ? "ACCOUNT_BUDGET_EXHAUSTED"
+                                                                            : globalRemaining
+                                                                                                    .signum()
+                                                                                            <= 0
+                                                                                    ? "GLOBAL_BUDGET_EXHAUSTED"
+                                                                                    : null;
+
+                                    var efforts =
+                                            List.of("gpt-6.1-sol", "gpt-6-astra").contains(id)
+                                                    ? List.of("LOW", "MEDIUM", "HIGH")
+                                                    : List.of("NONE", "LOW", "MEDIUM", "HIGH");
+
+                                    return new PlatformUsageModelResponse(
+                                            "OPENAI",
+                                            id,
+                                            true,
+                                            active,
+                                            efforts,
+                                            cap.maxRunUsd(),
+                                            reason == null,
+                                            reason,
+                                            false);
+                                })
+                        .toList();
         return new PlatformUsageResponse(
                 "USD",
                 limit,
@@ -349,14 +278,7 @@ public class PlatformUsageService {
     }
 
     private BigDecimal available(String scope, UUID subject, LocalDate period, BigDecimal limit) {
-        var held =
-                jdbc.query(
-                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND"
-                                + " subject_id=? AND period=?",
-                        (row, n) -> row.getBigDecimal(1),
-                        scope,
-                        subject,
-                        Date.valueOf(period));
+        var held = repository.findBucket(scope, subject, period);
         return limit.subtract(held.isEmpty() ? ZERO : held.getFirst()).max(ZERO);
     }
 
@@ -371,24 +293,7 @@ public class PlatformUsageService {
 
     private List<ProviderCallUsage> personalAttempts(UUID scope, String model) {
         // 예약 상한을 계산한 값이며 실제 청구액이나 확정 사용량을 뜻하지 않는다.
-        return jdbc.query(
-                "SELECT call_id,operation,input_tokens,output_tokens FROM app.byok_provider_attempt"
-                        + " WHERE scope_id=? ORDER BY created_at,call_id",
-                (row, n) ->
-                        new ProviderCallUsage(
-                                row.getObject(1, UUID.class),
-                                Provider.OPENAI,
-                                model,
-                                row.getString(2),
-                                row.getLong(3),
-                                row.getLong(4),
-                                0,
-                                0,
-                                ZERO,
-                                ZERO,
-                                false,
-                                "BYOK"),
-                scope);
+        return repository.listPersonalAttempts(scope, model);
     }
 
     @Transactional(readOnly = true)
@@ -410,64 +315,7 @@ public class PlatformUsageService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid usage cursor");
             }
         }
-        var items =
-                jdbc.query(
-                        """
-                        SELECT r.run_id,r.model,COALESCE(a.status,
-                               CASE WHEN g.status='REQUESTED' AND g.updated_at < clock_timestamp() - interval '90 seconds'
-                                    THEN 'UNKNOWN' ELSE g.status END,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
-                               r.execution_closed,r.byok_scope_id,r.byok_input_tokens,r.byok_output_tokens
-                        FROM (
-                            SELECT p.run_id,p.model,p.created_at,s.settled_usd,s.reserved_usd,s.execution_closed,
-                                   NULL::uuid AS byok_scope_id,0::bigint AS byok_input_tokens,0::bigint AS byok_output_tokens
-                            FROM app.platform_spend_reservation p JOIN app.platform_spend_settlement s USING(run_id) WHERE p.user_id=?
-                            UNION ALL
-                            SELECT b.run_id,b.payload->>'model',b.created_at,0::numeric,0::numeric,b.closed,
-                                   b.scope_id,b.input_tokens,b.output_tokens
-                            FROM app.byok_execution_scope b WHERE b.payload->>'initiatedBy'=?
-                        ) r LEFT JOIN app.agent_run a ON a.id=r.run_id
-                        LEFT JOIN app.pet_generation g ON g.id=r.run_id AND g.user_id=? AND g.request_hash IS NOT NULL
-                        WHERE (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
-                        """,
-                        (row, n) -> {
-                            UUID run = row.getObject(1, UUID.class),
-                                    byokScope = row.getObject(8, UUID.class);
-                            var calls =
-                                    byokScope == null
-                                            ? attempts(run)
-                                            : personalAttempts(byokScope, row.getString(2));
-                            return new PlatformUsageEntryResponse(
-                                    run,
-                                    row.getString(2),
-                                    row.getString(3),
-                                    row.getTimestamp(4).toInstant(),
-                                    row.getBigDecimal(5),
-                                    row.getBigDecimal(6),
-                                    byokScope == null
-                                            && row.getBoolean(7)
-                                            && row.getBigDecimal(6).signum() == 0
-                                            && calls.stream()
-                                                    .allMatch(ProviderCallUsage::usageKnown),
-                                    byokScope == null
-                                            ? calls.stream()
-                                                    .filter(c -> "BYOK".equals(c.fundingSource()))
-                                                    .mapToLong(ProviderCallUsage::inputTokens)
-                                                    .sum()
-                                            : row.getLong(9),
-                                    byokScope == null
-                                            ? calls.stream()
-                                                    .filter(c -> "BYOK".equals(c.fundingSource()))
-                                                    .mapToLong(ProviderCallUsage::outputTokens)
-                                                    .sum()
-                                            : row.getLong(10),
-                                    calls);
-                        },
-                        userId,
-                        userId.toString(),
-                        userId,
-                        Timestamp.from(before),
-                        beforeId,
-                        limit + 1);
+        var items = repository.listHistory(userId, userId.toString(), before, beforeId, limit + 1);
         boolean more = items.size() > limit;
         items = List.copyOf(items.subList(0, Math.min(items.size(), limit)));
         String next = null;

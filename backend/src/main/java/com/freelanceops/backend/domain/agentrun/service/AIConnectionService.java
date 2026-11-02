@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifie
 import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionsResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcAIConnectionRepository;
 import com.freelanceops.backend.domain.agentrun.security.CredentialCipher;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -11,7 +12,6 @@ import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationS
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,21 +19,21 @@ import java.util.*;
 
 @Service
 public class AIConnectionService {
-    private final JdbcTemplate jdbc;
+    private final JdbcAIConnectionRepository repository;
     private final CredentialCipher cipher;
     private final WorkspaceAuthorizationService authorization;
     private final ProviderCredentialVerifier verifier;
     private final Map<Provider, List<String>> models;
 
     public AIConnectionService(
-            JdbcTemplate jdbc,
+            JdbcAIConnectionRepository repository,
             CredentialCipher cipher,
             WorkspaceAuthorizationService authorization,
             ProviderCredentialVerifier verifier,
             @Value(
                             "${APP_BYOK_OPENAI_MODELS:gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-6-astra,gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}")
                     String openai) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.cipher = cipher;
         this.authorization = authorization;
         this.verifier = verifier;
@@ -44,19 +44,7 @@ public class AIConnectionService {
     public AIConnectionsResponse list(UUID user, UUID workspace) {
         authorize(user, workspace);
         return new AIConnectionsResponse(
-                cipher.available(),
-                models,
-                jdbc.query(
-                        "SELECT id, provider, model, masked_key, updated_at FROM app.ai_connection WHERE workspace_id = ? AND user_id = ? ORDER BY provider",
-                        (row, n) ->
-                                new AIConnectionResponse(
-                                        row.getObject("id", UUID.class),
-                                        Provider.valueOf(row.getString("provider")),
-                                        row.getString("model"),
-                                        row.getString("masked_key"),
-                                        row.getTimestamp("updated_at").toInstant()),
-                        workspace,
-                        user));
+                cipher.available(), models, repository.listConnections(workspace, user));
     }
 
     public AIConnectionResponse save(
@@ -75,32 +63,12 @@ public class AIConnectionService {
         verifier.verify(provider, model, apiKey);
         // 연결을 교체해도 식별자는 유지한다. 최초 등록이 경합하면 중복 저장을 거부한다.
         UUID id =
-                jdbc
-                        .query(
-                                "SELECT id FROM app.ai_connection WHERE workspace_id = ? AND user_id = ? AND provider = ?",
-                                (row, n) -> row.getObject("id", UUID.class),
-                                workspace,
-                                user,
-                                provider.name())
-                        .stream()
+                repository.findConnectionIds(workspace, user, provider.name()).stream()
                         .findFirst()
                         .orElseGet(UUID::randomUUID);
         String encrypted = cipher.encrypt(apiKey, binding(id, workspace, user, provider));
         String masked = "••••" + apiKey.substring(apiKey.length() - 4);
-        jdbc.update(
-                """
-            INSERT INTO app.ai_connection(id, workspace_id, user_id, provider, model, ciphertext, masked_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET model = EXCLUDED.model, ciphertext = EXCLUDED.ciphertext,
-                masked_key = EXCLUDED.masked_key, updated_at = CURRENT_TIMESTAMP
-            """,
-                id,
-                workspace,
-                user,
-                provider.name(),
-                model,
-                encrypted,
-                masked);
+        repository.upsertConnection(id, workspace, user, provider.name(), model, encrypted, masked);
         return list(user, workspace).connections().stream()
                 .filter(item -> item.id().equals(id))
                 .findFirst()
@@ -109,12 +77,7 @@ public class AIConnectionService {
 
     public void delete(UUID user, UUID workspace, UUID id) {
         authorize(user, workspace);
-        if (jdbc.update(
-                        "DELETE FROM app.ai_connection WHERE id = ? AND workspace_id = ? AND user_id = ?",
-                        id,
-                        workspace,
-                        user)
-                != 1) {
+        if (repository.deleteConnection(id, workspace, user) != 1) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
@@ -128,14 +91,7 @@ public class AIConnectionService {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE, "AI connection storage unavailable");
         Integer count =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.ai_connection WHERE id = ? AND workspace_id = ? AND user_id = ? AND provider = ? AND model = ?",
-                        Integer.class,
-                        id,
-                        workspace,
-                        user,
-                        provider.name(),
-                        model);
+                repository.countMatchingConnection(id, workspace, user, provider.name(), model);
         if (count == null || count != 1)
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AI connection unavailable");
     }
@@ -143,14 +99,7 @@ public class AIConnectionService {
     public String resolve(UUID user, UUID workspace, UUID id, Provider provider, String model) {
         validate(user, workspace, id, provider, model);
         List<String> values =
-                jdbc.query(
-                        "SELECT ciphertext FROM app.ai_connection WHERE id = ? AND workspace_id = ? AND user_id = ? AND provider = ? AND model = ?",
-                        (row, n) -> row.getString(1),
-                        id,
-                        workspace,
-                        user,
-                        provider.name(),
-                        model);
+                repository.findCiphertexts(id, workspace, user, provider.name(), model);
         if (values.isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "AI connection unavailable");
         return cipher.decrypt(values.getFirst(), binding(id, workspace, user, provider));

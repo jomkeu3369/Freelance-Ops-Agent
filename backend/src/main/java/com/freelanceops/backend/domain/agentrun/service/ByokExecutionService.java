@@ -9,20 +9,20 @@ import com.freelanceops.backend.domain.agentrun.dto.response.ByokExecutionAdmiss
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcByokExecutionRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcByokExecutionRepository.Scope;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.ObjectMapper;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -31,14 +31,18 @@ import java.util.UUID;
 @Service
 public class ByokExecutionService {
     private static final Set<String> OPERATIONS =
-            Set.of("department_work_product", "bounded_react_step", "conversation_review", "conversation_revision");
+            Set.of(
+                    "department_work_product",
+                    "bounded_react_step",
+                    "conversation_review",
+                    "conversation_revision");
     private static final Set<AgentRunStatus> TERMINAL =
             Set.of(
                     AgentRunStatus.COMPLETED,
                     AgentRunStatus.PARTIAL,
                     AgentRunStatus.FAILED,
                     AgentRunStatus.CANCELLED);
-    private final JdbcTemplate jdbc;
+    private final JdbcByokExecutionRepository repository;
     private final ObjectMapper mapper;
     private final AIConnectionService connections;
     private final WorkspaceAuthorizationService authorization;
@@ -47,14 +51,14 @@ public class ByokExecutionService {
     private final AgentBudgetPolicy budgetPolicy;
 
     public ByokExecutionService(
-            JdbcTemplate jdbc,
+            JdbcByokExecutionRepository repository,
             ObjectMapper mapper,
             AIConnectionService connections,
             WorkspaceAuthorizationService authorization,
             AgentRunRepository runs,
             ProjectRepository projects,
             AgentBudgetPolicy budgetPolicy) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.mapper = mapper;
         this.connections = connections;
         this.authorization = authorization;
@@ -69,8 +73,6 @@ public class ByokExecutionService {
             UUID projectId,
             UUID initiatedBy,
             Set<String> permissions) {}
-
-    private record Scope(ByokBudget budget, boolean closed) {}
 
     @Transactional(propagation = Propagation.MANDATORY)
     public ByokBudget issue(
@@ -127,15 +129,11 @@ public class ByokExecutionService {
                         budget.maxOutputTokens(),
                         budget,
                         costNoticeVersion);
-        jdbc.update(
-                """
-            INSERT INTO app.byok_execution_scope(scope_id,run_id,payload,valid_until,max_model_calls,max_input_tokens,max_output_tokens)
-            VALUES (?,?,?::jsonb,?,?,?,?)
-            """,
+        repository.insertScope(
                 scope.scopeId(),
                 runId,
                 mapper.writeValueAsString(scope),
-                Timestamp.from(until),
+                until,
                 scope.maxModelCalls(),
                 scope.maxInputTokens(),
                 scope.maxOutputTokens());
@@ -168,7 +166,8 @@ public class ByokExecutionService {
     }
 
     @Transactional
-    public ByokExecutionAdmissionResponse admit(UUID scopeId, ByokExecutionAttemptRequest attempt, ExecutionPrincipal principal) {
+    public ByokExecutionAdmissionResponse admit(
+            UUID scopeId, ByokExecutionAttemptRequest attempt, ExecutionPrincipal principal) {
         requirePrincipal(principal);
         AgentRunEntity run =
                 runs.findByIdAndWorkspaceIdForUpdate(principal.runId(), principal.workspaceId())
@@ -209,11 +208,7 @@ public class ByokExecutionService {
         requireOpen(state);
         requireCurrentAccess(run); // 유료 호출을 시도할 때마다 권한 철회와 프로젝트 삭제 여부를 확인한다.
         int inserted =
-                jdbc.update(
-                        """
-            INSERT INTO app.byok_provider_attempt(call_id,scope_id,operation,input_tokens,output_tokens)
-            VALUES (?,?,?,?,?) ON CONFLICT (call_id) DO NOTHING
-            """,
+                repository.insertAttempt(
                         attempt.callId(),
                         scopeId,
                         attempt.operation(),
@@ -224,18 +219,7 @@ public class ByokExecutionService {
                     "BYOK_ATTEMPT_REPLAY",
                     "Provider attempt was already admitted; it must not be executed again");
         int changed =
-                jdbc.update(
-                        """
-            UPDATE app.byok_execution_scope SET model_calls=model_calls+1,input_tokens=input_tokens+?,output_tokens=output_tokens+?
-            WHERE scope_id=? AND NOT closed AND valid_until > clock_timestamp()
-              AND model_calls < max_model_calls AND input_tokens + ? <= max_input_tokens
-              AND output_tokens + ? <= max_output_tokens
-            """,
-                        attempt.inputTokens(),
-                        attempt.maxOutputTokens(),
-                        scopeId,
-                        attempt.inputTokens(),
-                        attempt.maxOutputTokens());
+                repository.consumeScope(attempt.inputTokens(), attempt.maxOutputTokens(), scopeId);
         if (changed != 1)
             throw new ByokExecutionException(
                     HttpStatus.TOO_MANY_REQUESTS,
@@ -259,9 +243,7 @@ public class ByokExecutionService {
     /** 실행 범위를 닫으면 다시 열 수 없으며 예약한 시도 횟수도 복구하지 않는다. */
     @Transactional
     public void close(UUID runId) {
-        jdbc.update(
-                "UPDATE app.byok_execution_scope SET closed=TRUE WHERE run_id=? AND NOT closed",
-                runId);
+        repository.closeScope(runId);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -299,12 +281,7 @@ public class ByokExecutionService {
                 throw rejected("BYOK_SCOPE_INVALID", "Personal usage provider binding is invalid");
             }
             Integer count =
-                    jdbc.queryForObject(
-                            """
-                SELECT count(*) FROM app.byok_provider_attempt WHERE call_id=? AND scope_id=? AND operation=?
-                AND input_tokens >= ? AND output_tokens >= ?
-                """,
-                            Integer.class,
+                    repository.countMatchingAttempt(
                             call.callId(),
                             scope.scopeId(),
                             call.operation(),
@@ -326,15 +303,7 @@ public class ByokExecutionService {
     }
 
     private Scope find(UUID run, boolean lock) {
-        var rows =
-                jdbc.query(
-                        "SELECT payload::text,closed FROM app.byok_execution_scope WHERE run_id=?"
-                                + (lock ? " FOR UPDATE" : ""),
-                        (row, n) ->
-                                new Scope(
-                                        mapper.readValue(row.getString(1), ByokBudget.class),
-                                        row.getBoolean(2)),
-                        run);
+        var rows = repository.findScope(run, lock);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
@@ -405,9 +374,9 @@ public class ByokExecutionService {
     }
 
     private Instant now() {
-        Timestamp now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class);
+        Instant now = repository.databaseTime();
         if (now == null) throw new IllegalStateException("Database clock unavailable");
-        return now.toInstant();
+        return now;
     }
 
     private static ByokExecutionException closed() {

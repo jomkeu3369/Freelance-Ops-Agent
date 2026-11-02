@@ -1,11 +1,11 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPetProfileRepository;
 
 import jakarta.validation.Validator;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -15,19 +15,19 @@ import java.util.*;
 
 @Service
 public class PetProfileService {
-    private final JdbcTemplate jdbc;
+    private final JdbcPetProfileRepository repository;
     private final AIConnectionService authorization;
     private final ObjectMapper mapper;
     private final Validator validator;
     private final CustomAgentPetService customPets;
 
     public PetProfileService(
-            JdbcTemplate jdbc,
+            JdbcPetProfileRepository repository,
             AIConnectionService authorization,
             ObjectMapper mapper,
             Validator validator,
             CustomAgentPetService customPets) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.authorization = authorization;
         this.mapper = mapper;
         this.validator = validator;
@@ -38,12 +38,7 @@ public class PetProfileService {
         authorization.authorize(user, workspace);
         var custom = customPets.runtimeProfiles(user, workspace);
         if (custom.isPresent()) return custom.get();
-        var saved =
-                jdbc.query(
-                        "SELECT profile_json FROM app.pet_profile WHERE workspace_id = ? AND user_id = ?",
-                        (row, n) -> mapper.readValue(row.getString(1), PetProfile.class),
-                        workspace,
-                        user);
+        var saved = repository.listProfiles(workspace, user);
         return PetProfile.defaults().stream()
                 .map(
                         base ->
@@ -57,16 +52,8 @@ public class PetProfileService {
     public PetProfile save(UUID user, UUID workspace, PetProfile profile) {
         authorization.authorize(user, workspace);
         validate(profile);
-        jdbc.update(
-                """
-            INSERT INTO app.pet_profile(workspace_id, user_id, slot, profile_json) VALUES (?, ?, ?, ?)
-            ON CONFLICT (workspace_id, user_id, slot) DO UPDATE
-            SET profile_json = EXCLUDED.profile_json, updated_at = CURRENT_TIMESTAMP
-            """,
-                workspace,
-                user,
-                profile.slot(),
-                mapper.writeValueAsString(profile));
+        repository.upsertProfile(
+                workspace, user, profile.slot(), mapper.writeValueAsString(profile));
         return profile;
     }
 

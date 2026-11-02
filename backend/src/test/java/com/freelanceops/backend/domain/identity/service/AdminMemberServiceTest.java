@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
+import com.freelanceops.backend.domain.identity.repository.JdbcAdminMemberRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,7 +22,7 @@ class AdminMemberServiceTest {
     void everyEntryPointDeniesBeforeReadingMetadataOrLedger() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         var usage = mock(PlatformUsageService.class);
-        var service = new AdminMemberService(jdbc, usage);
+        var service = new AdminMemberService(new JdbcAdminMemberRepository(jdbc), usage);
         UUID actor = UUID.randomUUID(), target = UUID.randomUUID();
         List<org.assertj.core.api.ThrowableAssert.ThrowingCallable> reads =
                 List.of(
@@ -49,7 +50,7 @@ class AdminMemberServiceTest {
         var usage = mock(PlatformUsageService.class);
         UUID actor = UUID.randomUUID();
         authorize(jdbc, actor);
-        var service = new AdminMemberService(jdbc, usage);
+        var service = new AdminMemberService(new JdbcAdminMemberRepository(jdbc), usage);
         List<org.assertj.core.api.ThrowableAssert.ThrowingCallable> invalid =
                 List.of(
                         () -> service.members(actor, "x".repeat(101), "", 0, 25),
@@ -77,7 +78,7 @@ class AdminMemberServiceTest {
         var usage = mock(PlatformUsageService.class);
         UUID actor = UUID.randomUUID(), target = UUID.randomUUID();
         authorize(jdbc, actor);
-        var service = new AdminMemberService(jdbc, usage);
+        var service = new AdminMemberService(new JdbcAdminMemberRepository(jdbc), usage);
         assertThatThrownBy(() -> service.usage(actor, target))
                 .isInstanceOfSatisfying(
                         ResponseStatusException.class,
@@ -126,7 +127,7 @@ class AdminMemberServiceTest {
                         org.mockito.ArgumentMatchers.<RowMapper<UUID>>any(),
                         eq(actor)))
                 .thenReturn(List.of(actor));
-        var service = new AdminMemberService(jdbc, usage);
+        var service = new AdminMemberService(new JdbcAdminMemberRepository(jdbc), usage);
         service.usage(actor, actor);
         assertThatThrownBy(() -> service.usageHistory(actor, actor, null, 20))
                 .isInstanceOfSatisfying(

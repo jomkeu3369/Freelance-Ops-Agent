@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcCustomAgentPetRepository;
 
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -26,7 +27,7 @@ class CustomAgentPetServiceTest {
     private final ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
     private final CustomAgentPetService service =
             new CustomAgentPetService(
-                    jdbc,
+                    new JdbcCustomAgentPetRepository(jdbc, new ObjectMapper()),
                     authorization,
                     new ObjectMapper(),
                     new PetPromptComposer(),
@@ -105,7 +106,7 @@ class CustomAgentPetServiceTest {
         assertThatThrownBy(
                         () ->
                                 new CustomAgentPetService(
-                                        jdbc,
+                                        new JdbcCustomAgentPetRepository(jdbc, new ObjectMapper()),
                                         authorization,
                                         new ObjectMapper(),
                                         new PetPromptComposer(),
@@ -117,7 +118,7 @@ class CustomAgentPetServiceTest {
         assertThatThrownBy(
                         () ->
                                 new CustomAgentPetService(
-                                        jdbc,
+                                        new JdbcCustomAgentPetRepository(jdbc, new ObjectMapper()),
                                         authorization,
                                         new ObjectMapper(),
                                         new PetPromptComposer(),

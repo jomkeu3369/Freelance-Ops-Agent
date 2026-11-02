@@ -2,18 +2,18 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository.Reservation;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository.Settings;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,12 +29,13 @@ public class PlatformSpendService {
     public static final String TARIFF_VERSION = PlatformSpendTariff.VERSION;
     static final ZoneId TIMEZONE = ZoneId.of("Asia/Seoul");
     private static final UUID GLOBAL = new UUID(0L, 0L);
-    private final JdbcTemplate jdbc;
+    private final JdbcPlatformSpendRepository repository;
     private final boolean enabled;
 
     public PlatformSpendService(
-            JdbcTemplate jdbc, @Value("${platform.ai.spend.enabled:false}") boolean enabled) {
-        this.jdbc = jdbc;
+            JdbcPlatformSpendRepository repository,
+            @Value("${platform.ai.spend.enabled:false}") boolean enabled) {
+        this.repository = repository;
         this.enabled = enabled;
     }
 
@@ -52,38 +53,10 @@ public class PlatformSpendService {
             throw new IllegalArgumentException("Admission identity is required");
         PlatformSpendTariff.validateSelection(selection);
         // 데이터베이스의 설정 행 하나로 예약을 직렬화해 인스턴스별 환경 설정이 달라도 같은 금액 상한을 적용한다.
-        Settings settings =
-                jdbc.queryForObject(
-                        """
-                        SELECT luna_run_usd, terra_run_usd, account_week_usd, global_day_usd, global_week_usd
-                        FROM app.platform_spend_settings WHERE id = 1 FOR UPDATE
-                        """,
-                        (row, n) ->
-                                new Settings(
-                                        row.getBigDecimal(1),
-                                        row.getBigDecimal(2),
-                                        row.getBigDecimal(3),
-                                        row.getBigDecimal(4),
-                                        row.getBigDecimal(5)));
+        Settings settings = repository.lockSettings();
         if (settings == null)
             throw new IllegalStateException("Platform spending settings unavailable");
-        var existing =
-                jdbc.query(
-                        """
-                        SELECT user_id, provider, model, max_cost_usd, tariff_version, valid_until
-                        FROM app.platform_spend_reservation WHERE run_id = ?
-                        """,
-                        (row, n) ->
-                                new Reservation(
-                                        row.getObject(1, UUID.class),
-                                        row.getString(2),
-                                        row.getString(3),
-                                        new PlatformBudget(
-                                                runId,
-                                                row.getBigDecimal(4),
-                                                row.getString(5),
-                                                row.getTimestamp(6).toInstant())),
-                        runId);
+        var existing = repository.findReservation(runId);
         if (!existing.isEmpty()) {
             Reservation previous = existing.getFirst();
             if (!previous.userId().equals(userId)
@@ -94,19 +67,12 @@ public class PlatformSpendService {
             }
             return previous.budget();
         }
-        Timestamp now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class);
+        Instant now = repository.databaseTime();
         if (now == null) throw new IllegalStateException("Database clock unavailable");
-        Period period = Period.at(now.toInstant());
+        Period period = Period.at(now);
         if (selection.credentialId() == null)
-            PlatformSpendTariff.requireCurrentPrice(selection.model(), now.toInstant());
-        var caps =
-                jdbc.query(
-                        """
-                        SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
-                        """,
-                        (row, n) -> row.getBigDecimal(1),
-                        selection.provider().name(),
-                        selection.model());
+            PlatformSpendTariff.requireCurrentPrice(selection.model(), now);
+        var caps = repository.findEnabledModelCaps(selection.provider().name(), selection.model());
         if (caps.isEmpty() || caps.getFirst().signum() <= 0)
             throw new PlatformSpendUnavailableException();
         BigDecimal amount =
@@ -133,37 +99,22 @@ public class PlatformSpendService {
         hold("GLOBAL_DAY", GLOBAL, period.day(), amount, settings.globalDayUsd());
         hold("GLOBAL_WEEK", GLOBAL, period.week(), amount, settings.globalWeekUsd());
         hold("ACCOUNT_WEEK", userId, period.week(), amount, settings.accountWeekUsd());
-        jdbc.update(
-                """
-                INSERT INTO app.platform_spend_reservation
-                    (run_id, user_id, provider, model, max_cost_usd, tariff_version, day_period, week_period, valid_until)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+        repository.insertReservation(
                 runId,
                 userId,
                 selection.provider().name(),
                 selection.model(),
                 amount,
                 TARIFF_VERSION,
-                Date.valueOf(period.day()),
-                Date.valueOf(period.week()),
-                Timestamp.from(period.validUntil()));
-        jdbc.update(
-                "INSERT INTO app.platform_spend_settlement(run_id, reserved_usd) VALUES (?, ?)",
-                runId,
-                amount);
+                period.day(),
+                period.week(),
+                period.validUntil());
+        repository.insertSettlement(runId, amount);
         return new PlatformBudget(runId, amount, TARIFF_VERSION, period.validUntil());
     }
 
     private BigDecimal remaining(String scope, UUID subject, LocalDate period, BigDecimal limit) {
-        var held =
-                jdbc.query(
-                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND"
-                                + " subject_id=? AND period=?",
-                        (row, n) -> row.getBigDecimal(1),
-                        scope,
-                        subject,
-                        Date.valueOf(period));
+        var held = repository.findBucket(scope, subject, period);
         BigDecimal remaining = limit.subtract(held.isEmpty() ? BigDecimal.ZERO : held.getFirst());
         if (remaining.signum() <= 0) throw new PlatformSpendExhaustedException(scope);
         return remaining;
@@ -171,37 +122,10 @@ public class PlatformSpendService {
 
     private void hold(
             String scope, UUID subject, LocalDate period, BigDecimal amount, BigDecimal limit) {
-        jdbc.update(
-                """
-                INSERT INTO app.platform_spend_bucket(scope, subject_id, period, held_usd)
-                VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING
-                """,
-                scope,
-                subject,
-                Date.valueOf(period));
-        int changed =
-                jdbc.update(
-                        """
-                        UPDATE app.platform_spend_bucket SET held_usd = held_usd + ?
-                        WHERE scope = ? AND subject_id = ? AND period = ? AND held_usd + ? <= ?
-                        """,
-                        amount,
-                        scope,
-                        subject,
-                        Date.valueOf(period),
-                        amount,
-                        limit);
+        repository.insertBucket(scope, subject, period);
+        int changed = repository.holdBucket(amount, scope, subject, period, limit);
         if (changed != 1) throw new PlatformSpendExhaustedException(scope);
     }
-
-    record Settings(
-            BigDecimal lunaRunUsd,
-            BigDecimal terraRunUsd,
-            BigDecimal accountWeekUsd,
-            BigDecimal globalDayUsd,
-            BigDecimal globalWeekUsd) {}
-
-    record Reservation(UUID userId, String provider, String model, PlatformBudget budget) {}
 
     record Period(LocalDate day, LocalDate week, Instant validUntil) {
         static Period at(Instant now) {

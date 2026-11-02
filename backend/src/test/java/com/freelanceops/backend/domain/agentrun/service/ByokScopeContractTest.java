@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.ByokBudget;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.model.*;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcByokExecutionRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -139,7 +140,13 @@ class ByokScopeContractTest {
         var policy = mock(AgentBudgetPolicy.class);
         var service =
                 new ByokExecutionService(
-                        jdbc, JsonMapper.builder().build(), connections, null, null, null, policy);
+                        new JdbcByokExecutionRepository(jdbc, JsonMapper.builder().build()),
+                        JsonMapper.builder().build(),
+                        connections,
+                        null,
+                        null,
+                        null,
+                        policy);
         doThrow(
                         new org.springframework.web.server.ResponseStatusException(
                                 org.springframework.http.HttpStatus.NOT_FOUND))
@@ -169,7 +176,7 @@ class ByokScopeContractTest {
         var connections = mock(AIConnectionService.class);
         var service =
                 new ByokExecutionService(
-                        jdbc,
+                        new JdbcByokExecutionRepository(jdbc, JsonMapper.builder().build()),
                         JsonMapper.builder().build(),
                         connections,
                         null,
