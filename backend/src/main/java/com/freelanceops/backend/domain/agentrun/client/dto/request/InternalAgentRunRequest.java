@@ -56,6 +56,7 @@ public record InternalAgentRunRequest(
             @com.fasterxml.jackson.annotation.JsonInclude(
                             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
                     String costNoticeVersion) {
+                        
         /** 기존 실행 범위에는 비용 안내 정보가 없을 수 있다. 조회 과정에서 새 범위를 발급하거나 갱신하지 않는다. */
         public ByokBudget(
                 UUID scopeId,
