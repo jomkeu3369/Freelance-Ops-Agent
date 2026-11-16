@@ -7,6 +7,7 @@
 | 필요한 내용                   | 문서                                                                                                                                           |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | 제품 소개와 로컬 시작         | [저장소 README](../README.md), [Backend](../backend/README.md), [Agent](../agent/README.md), [Frontend](../frontend/README.md)                 |
+| Agent 런타임 모듈 책임 구분   | [Runtime 모듈 안내](../agent/src/runtime/README.md)                                                                                            |
 | 제품 범위와 도메인 규칙       | [V2 명세](V2_SPECIFICATION.md)                                                                                                                 |
 | 기술 선택과 변경 이유         | [설계 결정 기록](adr/README.md)                                                                                                                |
 | 현재 화면·개인 키·동료 설정   | [프런트엔드 안내](frontend/README.md)                                                                                                          |
