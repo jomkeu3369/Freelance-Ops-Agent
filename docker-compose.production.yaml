@@ -1,4 +1,3 @@
-# 기본 서비스 구성 위에 운영 이미지·필수 비밀값·자원 제한을 덧씌운다.
 name: freelance-ops-v2-production
 
 services:
