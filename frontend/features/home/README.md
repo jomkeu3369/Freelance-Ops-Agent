@@ -18,13 +18,13 @@
 | 등장·스크롤·플레이트→허브 합류 | `use-home-animation.ts` |
 | 첫 화면 표시 이후 GPU 장면의 순차 준비·취소 | `webgl/startup-queue.mjs` |
 | 예시 수치·원형·작업 목록·분절 그래프의 첫 등장 | `components/story-metric-entry.tsx` |
-| 랜딩의 기반/히어로/비교/CTA 스타일 | `../../app/product-demo.css` |
-| 중간 제품 장면 스타일 | `../../app/reference-story.css` |
-| 가시성별 모션·3D 보존 | `../../app/scene-motion.css` |
-| 읽기 쉬운 글꼴·평면 텍스트·안내문 감싸기 | `../../app/landing-readability.css` |
-| 공통 포인터 중심·빛 반사·얕은 입체 깊이 | `use-pointer-depth.ts`, `../../app/pointer-depth.css` |
-| 문의 카드의 물방울 변형·이동·복원 | `use-inquiry-transfer.ts`, `../../app/inquiry-motion.css` |
-| 연결된 막대·공수 셀의 순차 펼침 | `../../app/graph-motion.css` |
+| 랜딩의 기반/히어로/비교/CTA 스타일 | `styles/product-demo.css` |
+| 중간 제품 장면 스타일 | `styles/reference-story.css` |
+| 가시성별 모션·3D 보존 | `styles/scene-motion.css` |
+| 읽기 쉬운 글꼴·평면 텍스트·안내문 감싸기 | `styles/landing-readability.css` |
+| 공통 포인터 중심·빛 반사·얕은 입체 깊이 | `use-pointer-depth.ts`, `styles/pointer-depth.css` |
+| 문의 카드의 물방울 변형·이동·복원 | `use-inquiry-transfer.ts`, `styles/inquiry-motion.css` |
+| 연결된 막대·공수 셀의 순차 펼침 | `styles/graph-motion.css` |
 | 추가 영문 | `ui-home-english.mjs`, `ui-story-english.mjs` |
 
 ## 예시와 실제 동작의 구분
@@ -92,7 +92,7 @@ Node 22에서 `npm run preview:check`를 실행합니다. Playwright 테스트�
 
 ## 2026-10-04 상단 업무 흐름의 실제 3D 장면
 
-대상은 문의 → 요구사항/리스크 → 견적/제안 노드와 그 아래 프로젝트 카드입니다. 공수 막대 차트는 기존 구현을 유지합니다. `use-workflow-depth.ts`가 `webgl/workflow-renderer.ts`를 화면 진입 시 동적 import합니다. `app/workflow-depth.css`는 첫 GPU 프레임 이후에만 HTML 배경을 숨깁니다.
+대상은 문의 → 요구사항/리스크 → 견적/제안 노드와 그 아래 프로젝트 카드입니다. 공수 막대 차트는 기존 구현을 유지합니다. `use-workflow-depth.ts`가 `webgl/workflow-renderer.ts`를 화면 진입 시 동적 import합니다. `features/home/styles/workflow-depth.css`는 첫 GPU 프레임 이후에만 HTML 배경을 숨깁니다.
 
 노드와 프로젝트 카드는 둥근 윤곽을 가진 얇은 돌출 메시입니다. `webgl/workflow-surface.ts`의 거리장 셰이더가 단일 경계를 부드럽게 처리하고 차콜색 유리 면·한쪽 반사광·활성 단계의 넓은 광원 이동을 그립니다. 모든 면을 감싸던 밝은 이중 선과 반복 주사선은 제거했습니다. 빈 작업 열은 옅은 배경으로, 결과 카드는 배경 광선을 충분히 가리는 전경으로 구분합니다. 서로 다른 Z 높이의 노드를 연속적인 발광 곡선으로 연결합니다. 단계 선택·자동 진행은 기존 예시 상태를 사용하고, 같은 카드가 실제 깊이 방향으로 떠올라 다음 열로 이동합니다. 글자와 버튼은 React DOM에 남기고 메시의 표면을 같은 카메라로 투영하므로 의미·클릭·키보드 접근성을 유지합니다. 이전 CSS 기울기와 카드 변형은 GPU 장면이 준비되면 제어권을 넘깁니다. 제품 예시 상단의 자동 진행 안내는 노출하지 않습니다.
 

@@ -1,15 +1,15 @@
 "use client";
 
-import "@/app/product-demo.css";
-import "@/app/reference-story.css";
-import "@/app/scene-motion.css";
+import "./styles/product-demo.css";
+import "./styles/reference-story.css";
+import "./styles/scene-motion.css";
 import "@fontsource-variable/noto-sans-kr";
-import "@/app/landing-readability.css";
-import "@/app/pointer-depth.css";
-import "@/app/inquiry-motion.css";
-import "@/app/webgl-scene.css";
-import "@/app/workflow-depth.css";
-import "@/app/workflow-unfold.css";
+import "./styles/landing-readability.css";
+import "./styles/pointer-depth.css";
+import "./styles/inquiry-motion.css";
+import "./styles/webgl-scene.css";
+import "./styles/workflow-depth.css";
+import "./styles/workflow-unfold.css";
 
 import { LocaleProvider } from "./ui-language";
 

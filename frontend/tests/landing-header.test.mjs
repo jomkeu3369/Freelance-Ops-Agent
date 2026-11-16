@@ -4,7 +4,7 @@ import test from "node:test";
 
 const header = await readFile(new URL("../features/home/components/home-header.tsx", import.meta.url), "utf8");
 const locale = await readFile(new URL("../features/home/ui-language.tsx", import.meta.url), "utf8");
-const css = await readFile(new URL("../app/product-demo.css", import.meta.url), "utf8");
+const css = await readFile(new URL("../features/home/styles/product-demo.css", import.meta.url), "utf8");
 
 // 배치와 동작 계약을 브라우저 렌더링 검사와 함께 확인한다.
 test("landing header paints edge-to-edge while navigation retains its content gutter", () => {

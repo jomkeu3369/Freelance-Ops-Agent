@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import "../../../app/graph-motion.css";
+import "../styles/graph-motion.css";
 import {
   ArrowDown,
   ArrowRight,

@@ -188,7 +188,7 @@ test("proposal bars do not repeat numeric effort in the accessible table", async
 
 test("mixed-content action text remains readable and the handoff observes its inner target geometry", async () => {
   const [css, hook] = await Promise.all([
-    sourceFile("../app/landing-readability.css"),
+    sourceFile("../features/home/styles/landing-readability.css"),
     sourceFile("../features/home/use-home-animation.ts")
   ]);
   for (const selector of [".spatial-assumptions summary", ".spatial-scope-estimator aside > a", "> footer > div > p"]) {
@@ -228,7 +228,7 @@ test("ambient motion observes each layer independently and cleans up observers, 
 });
 
 test("CSS travel has visible, paused, mobile and reduced-motion guards", async () => {
-  const css = await sourceFile("../app/scene-motion.css");
+  const css = await sourceFile("../features/home/styles/scene-motion.css");
   assert.match(css, /\[data-ambient\]\s*\{[^}]*--ambient-play-state:\s*paused/);
   assert.match(css, /\[data-ambient-visible="true"\]\s*\{[^}]*--ambient-play-state:\s*running/);
   assert.match(css, /\[data-motion-paused="true"\]\s+\[data-ambient\]\s*\{[^}]*--ambient-play-state:\s*paused/);
@@ -249,7 +249,7 @@ test("CSS travel has visible, paused, mobile and reduced-motion guards", async (
 test("intrinsic card sizing and opaque prism groups protect real content without a page overflow mask", async () => {
   const [home, css] = await Promise.all([
     sourceFile("../features/home/home-page.tsx"),
-    sourceFile("../app/scene-motion.css")
+    sourceFile("../features/home/styles/scene-motion.css")
   ]);
   assert.doesNotMatch(home, /overflow-x-hidden|overflow-hidden/);
   assert.match(css, /\.figma-home\.spatial-site\s*\{[^}]*overflow:\s*visible/);
@@ -262,8 +262,8 @@ test("brand handoff travels into the measured radial target and reverses its sin
   const [hook, story, css, motionCss] = await Promise.all([
     sourceFile("../features/home/use-home-animation.ts"),
     sourceFile("../features/home/components/reference-story.tsx"),
-    sourceFile("../app/reference-story.css"),
-    sourceFile("../app/scene-motion.css")
+    sourceFile("../features/home/styles/reference-story.css"),
+    sourceFile("../features/home/styles/scene-motion.css")
   ]);
   assert.match(story, /data-story-brand-target/);
   assert.match(story, /data-story-merge-card/);
@@ -382,7 +382,7 @@ test("the brief intro is decorative, centered, bounded and skipped for reduced m
   const [home, hook, css] = await Promise.all([
     sourceFile("../features/home/home-page.tsx"),
     sourceFile("../features/home/use-home-animation.ts"),
-    sourceFile("../app/scene-motion.css")
+    sourceFile("../features/home/styles/scene-motion.css")
   ]);
   assert.match(home, /className="spatial-intro"\s+data-story-intro\s+aria-hidden="true"/);
   assert.match(home, /spatial-intro-mark">\s*<StoryMark\s*\/>/);
@@ -408,7 +408,7 @@ test("landing typography is bundled with readable fallbacks and text reveals do 
   const [home, hook, css, pkg] = await Promise.all([
     sourceFile("../features/home/home-page.tsx"),
     sourceFile("../features/home/use-home-animation.ts"),
-    sourceFile("../app/landing-readability.css"),
+    sourceFile("../features/home/styles/landing-readability.css"),
     sourceFile("../package.json")
   ]);
   assert.match(home, /import\s*"@fontsource-variable\/noto-sans-kr"/);
@@ -424,7 +424,7 @@ test("landing typography is bundled with readable fallbacks and text reveals do 
 });
 
 test("mobile and reduced brand plates reserve intrinsic space for readable copy above the source logo", async () => {
-  const css = await sourceFile("../app/landing-readability.css");
+  const css = await sourceFile("../features/home/styles/landing-readability.css");
   const staticPlate = css.slice(css.indexOf('@media (max-width: 820px), (prefers-reduced-motion: reduce)'));
   assert.match(staticPlate, /\.story-brand-stage\s*\{\s*height:\s*auto/);
   assert.match(staticPlate, /\.story-brand-plate\s*\{[^}]*position:\s*relative;[^}]*height:\s*auto\s*!important;[^}]*padding:\s*28px\s*24px\s*calc\(var\(--brand-mark-size\)\s*\+\s*64px\)/);
@@ -437,10 +437,10 @@ test("effort prisms keep attached faces and static translated labels while their
   const [component, hook, storyCss, readability, entry, motionCss] = await Promise.all([
     sourceFile("../features/home/components/reference-story.tsx"),
     sourceFile("../features/home/use-home-animation.ts"),
-    sourceFile("../app/reference-story.css"),
-    sourceFile("../app/landing-readability.css"),
+    sourceFile("../features/home/styles/reference-story.css"),
+    sourceFile("../features/home/styles/landing-readability.css"),
     sourceFile("../features/home/components/story-metric-entry.tsx"),
-    sourceFile("../app/graph-motion.css")
+    sourceFile("../features/home/styles/graph-motion.css")
   ]);
   const prism = component.slice(component.indexOf("function EffortPrisms"), component.indexOf("function BenefitCards"));
   assert.doesNotMatch(prism + storyCss + readability, /story-prism-cap|scenePrismCap/);
@@ -480,7 +480,7 @@ test("sample task counts use a truthful semantic list rather than an unrelated e
 });
 
 test("full-page text guards avoid inflated selector specificity and keep explanations and actions readable", async () => {
-  const css = await sourceFile("../app/landing-readability.css");
+  const css = await sourceFile("../features/home/styles/landing-readability.css");
   assert.doesNotMatch(css, /\.reference-story\s+:is\([^)]*(?:\.spatial-bar-label|\.spatial-bars\s*small)/, "A maximum-specificity :is list must not override later chart typography");
   for (const selector of [".story-evidence-meters > div > div > span", ".spatial-quote-total > div > span", ".spatial-scope-estimator .spatial-scope-slider > div", ".spatial-comparison-grid a", ".story-task-markers li"]) {
     const rule = css.slice(css.lastIndexOf(`${selector} {`));

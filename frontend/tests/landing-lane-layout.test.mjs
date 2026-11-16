@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const readability = await readFile(new URL("../app/landing-readability.css", import.meta.url), "utf8");
-const motion = await readFile(new URL("../app/scene-motion.css", import.meta.url), "utf8");
+const readability = await readFile(new URL("../features/home/styles/landing-readability.css", import.meta.url), "utf8");
+const motion = await readFile(new URL("../features/home/styles/scene-motion.css", import.meta.url), "utf8");
 
 // 소스의 배치 규칙을 확인하며 실제 모바일 화면 검증은 별도로 수행한다.
 test("landing lane headings intrinsically size the row above the moving project card", () => {

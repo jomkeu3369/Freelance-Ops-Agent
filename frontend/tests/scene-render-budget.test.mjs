@@ -17,7 +17,7 @@ test("comparison boundary uses bounded static glow assets rather than live blurr
 });
 
 test("inactive graph pulses stop and lower scope changes do not observe the whole page for brand refresh", async () => {
-  const css = await readFile(new URL("../app/scene-motion.css", import.meta.url), "utf8");
+  const css = await readFile(new URL("../features/home/styles/scene-motion.css", import.meta.url), "utf8");
   const hook = await readFile(new URL("../features/home/use-home-animation.ts", import.meta.url), "utf8");
   assert.match(css, /spatial-graph-pulse\[data-active="false"\][^}]*animation-play-state:\s*paused/);
   assert.match(css, /\.scene-fog-drift,\s*\.figma-home\.spatial-site \.scene-fog-cool\s*\{\s*animation:\s*none;\s*transform:\s*none/);
