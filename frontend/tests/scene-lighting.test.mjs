@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const css = await readFile(new URL("../app/scene-motion.css", import.meta.url), "utf8");
+const css = await readFile(new URL("../features/home/styles/scene-motion.css", import.meta.url), "utf8");
 const atmosphere = await readFile(new URL("../features/home/components/scene-atmosphere.tsx", import.meta.url), "utf8");
 const lightAnimations = ["sceneLightArrival", "scenePinchArrival", "sceneFilamentSwell", "sceneBloom", "sceneAuraSwell", "sceneFogDrift", "sceneEvidenceDrift"];
 
