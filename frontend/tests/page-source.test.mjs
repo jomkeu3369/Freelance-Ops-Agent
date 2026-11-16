@@ -11,26 +11,26 @@ import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft }
 
 test("HITL drafts remain isolated to an exact run and expire after 24 hours", () => {
   const now = Date.parse("2026-08-14T00:00:00.000Z");
-  const expected = { workspaceId: "workspace / alpha", runId: "run-17", interruptionId: "interrupt-3", questions: ["���⸦ Ȯ���� �ּ���."] };
-  const draft = createInterruptionDraft({ ...expected, answers: ["9�� 30��"] }, now);
+  const expected = { workspaceId: "workspace / alpha", runId: "run-17", interruptionId: "interrupt-3", questions: ["납기를 확인해 주세요."] };
+  const draft = createInterruptionDraft({ ...expected, answers: ["9월 30일"] }, now);
   assert.equal(interruptionDraftKey("user-1", expected.workspaceId, expected.runId, expected.interruptionId), "freelance-ops-interruption-draft-v1:user-1:workspace%20%2F%20alpha:run-17:interrupt-3");
   assert.deepEqual(parseInterruptionDraft(JSON.stringify(draft), expected, now), draft);
   assert.equal(parseInterruptionDraft(JSON.stringify(draft), { ...expected, runId: "run-18" }, now), null);
-  assert.equal(parseInterruptionDraft(JSON.stringify(draft), { ...expected, questions: ["������ Ȯ���� �ּ���."] }, now), null);
+  assert.equal(parseInterruptionDraft(JSON.stringify(draft), { ...expected, questions: ["예산을 확인해 주세요."] }, now), null);
   assert.equal(parseInterruptionDraft(JSON.stringify(draft), expected, now + 25 * 60 * 60 * 1_000), null);
 });
 
 test("pipeline and HITL controls preserve the server truth and unfinished answers", async () => {
   const [workspace, css] = await Promise.all([read("../app/workspace/page.tsx"), read("../app/globals.css")]);
   assert.match(workspace, /<select\s*value=\{project\.status\}/);
-  assert.match(workspace, /ACCEPTED:\s*"����\s*���ε�"/);
+  assert.match(workspace, /ACCEPTED:\s*"고객\s*승인됨"/);
   assert.match(workspace, /interruptionDraftKey\(session\.userId,\s*session\.workspaceId/);
   assert.match(workspace, /await\s*onSubmit\(answers\)/);
-  assert.match(workspace, /�ۼ�\s*����\s*�亯��\s*��\s*�ǿ�\s*�ӽ�\s*����˴ϴ�/);
+  assert.match(workspace, /작성\s*중인\s*답변은\s*이\s*탭에\s*임시\s*저장됩니다/);
   assert.match(css, /\.interruption-actions/);
 });
 
-// ��� ���� �ϳ��� �ƴ� ��� ���� ��ü�� �ҽ��� �˻��Ѵ�.
+// 경로 파일 하나가 아닌 기능 폴더 전체의 소스를 검사한다.
 async function readFeatureTree(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const sources = await Promise.all(entries.map(async (entry) => {
@@ -60,8 +60,8 @@ async function read(path) {
     return normalizeInterfaceCalls(source);
   }
   const source = normalizeInterfaceCalls(await readFeatureTree(new URL(features[path], import.meta.url)));
-  // JSX�� ��ġ�� �ٹٲ޸� �����ϰ� ���� �˻�� �����Ѵ�.
-  return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[��-�R])/g, ">").replace(/\s+(?=<)/g, "");
+  // JSX의 배치용 줄바꿈만 무시하고 내용 검사는 유지한다.
+  return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
 }
 
 test("Vercel Preview uses the standard Next.js build without Cloudflare adapters", async () => {
@@ -152,13 +152,13 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
   ]);
   assert.match(layout, /href="#main-content"/);
   assert.match(errorBoundary, /reset/);
-  assert.match(errorBoundary, /����\s*����/);
-  assert.match(notFound, /Workspace\s*����/);
-  assert.match(proposal, /�ٽ�\s*�õ�/);
+  assert.match(errorBoundary, /오류\s*참조/);
+  assert.match(notFound, /Workspace\s*열기/);
+  assert.match(proposal, /다시\s*시도/);
   assert.match(proposal, /aria-pressed=/);
   assert.match(workspace, /copyToClipboard/);
-  assert.match(workspace, /�ڵ�\s*���簡\s*���ܵǾ����ϴ�/);
-  assert.match(workspace, /��ũ\s*����/);
+  assert.match(workspace, /자동\s*복사가\s*차단되었습니다/);
+  assert.match(workspace, /링크\s*복사/);
   assert.match(workspace, /role="tabpanel"/);
   assert.match(workspace, /aria-controls="auth-panel-login"/);
   assert.match(workspace, /event\.key\s*===\s*"ArrowLeft"/);
@@ -173,13 +173,13 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
 test("landing page follows the approved product brief without fabricated social proof", async () => {
   const source = await read("../app/page.tsx");
   const workflow = await read("../features/home/components/workflow-unfold.tsx");
-  assert.match(source, /���Ǵ�\s*�Ѹ���/);
-  assert.match(source, /������\s*��Ȯ�ϰ�/);
-  assert.match(source, /AI\s*�ʾ���\s*����ڰ�\s*�����ϰ�\s*Ȯ���մϴ�/);
-  assert.match(workflow, /<h2[^>]*>�ϳ���\s*����,\s*�̾�����\s*�ټ�\s*�ܰ�<\/h2>/);
-  assert.match(source, /����\s*�ϴܰ�/);
-  assert.match(source, /�����\s*����\s*�ʿ�/);
-  assert.doesNotMatch(source, /�赵��|�ڼ���|����ȣ|98%|10��|������\s*AI|���\s*����|���\s*����|�ڵ�\s*�н��մϴ�/);
+  assert.match(source, /문의는\s*한마디/);
+  assert.match(source, /제안은\s*명확하게/);
+  assert.match(source, /AI\s*초안은\s*사용자가\s*검토하고\s*확정합니다/);
+  assert.match(workflow, /<h2[^>]*>하나의\s*문의,\s*이어지는\s*다섯\s*단계<\/h2>/);
+  assert.match(source, /예시\s*일단가/);
+  assert.match(source, /사용자\s*검토\s*필요/);
+  assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한\s*AI|모든\s*직군|모든\s*국가|자동\s*학습합니다/);
 });
 
 test("landing typography keeps Korean display copy within the measured line budget", async () => {
@@ -232,10 +232,10 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.settings-heading\s*h1,[\s\S]*?font-size:\s*clamp\(2\.15rem,\s*3\.1vw,\s*3\.55rem\)/);
   assert.match(css, /\.settings-heading\s*h1\s*\{[^}]*word-break:\s*keep-all/);
   assert.match(css, /\.settings-heading\s*h1\s*\{[^}]*text-wrap:\s*balance/);
-  assert.match(workspace, /aria-label="�۾�\s*����\s*����\s*����"/);
-  assert.match(workspace, /<span>02<\/span>\s*<strong>����\s*�ܰ�<\/strong>\s*<small>�ð����ϡ�����\s*�ݾ�<\/small>/);
-  assert.match(workspace, /����\s*����\s*�ܰ���\s*���\s*������\s*������\s*�θ�\s*��\s*������\s*����\s*��\s*�ٷ�\s*�ҷ���\s*��\s*�ֽ��ϴ�/);
-  assert.doesNotMatch(workspace, /Spring��\s*����|����������\s*����|workspace\.update\s*������|quotation\.read\s*����|outcome\.read\s*����|Java\s*���\s*����|����\s*���\s*�Ϸ�|��\s*revision/);
+  assert.match(workspace, /aria-label="작업\s*공간\s*설정\s*목차"/);
+  assert.match(workspace, /<span>02<\/span>\s*<strong>서비스\s*단가<\/strong>\s*<small>시간·일·고정\s*금액<\/small>/);
+  assert.match(workspace, /자주\s*쓰는\s*단가와\s*계산\s*기준을\s*저장해\s*두면\s*새\s*견적을\s*만들\s*때\s*바로\s*불러올\s*수\s*있습니다/);
+  assert.doesNotMatch(workspace, /Spring이\s*소유|결정적으로\s*적용|workspace\.update\s*권한이|quotation\.read\s*권한|outcome\.read\s*권한|Java\s*계산\s*도구|서버\s*계산\s*완료|새\s*revision/);
   assert.match(css, /\.settings-grid\s*\{[^}]*grid-template-columns:\s*230px\s*minmax\(0,\s*1fr\)/);
   assert.match(css, /\.settings-form\s*input,\s*\.settings-form\s*select\s*\{[^}]*min-height:\s*50px/);
   assert.match(css, /\.settings-form\s*input,\s*\.settings-form\s*select\s*\{[^}]*background:\s*var\(--surface-solid\)/);
@@ -246,7 +246,7 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.requirement-editor\s*input,\s*\.requirement-editor\s*select\s*\{[^}]*min-height:\s*46px/);
   assert.match(css, /\.requirement-editor\s*textarea\s*\{[^}]*min-height:\s*92px/);
   assert.match(workspace, /const\s*configuredModelOptions:\s*Record<Provider,\s*string\[]>/);
-  assert.match(workspace, /<label[^>]*>\s*AI\s*��<select[^>]*value=\{model\}/);
+  assert.match(workspace, /<label[^>]*>\s*AI\s*모델<select[^>]*value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
   assert.match(workspace, /name="currency"\s*value=\{draft.currency\}/);
   assert.match(css, /--workspace-radius-lg:\s*22px/);
@@ -257,7 +257,7 @@ test("workspace settings and requirement controls remain readable at desktop wid
 
 test("workspace interaction states use neutral focus and selection without neon halos", async () => {
   const css = await read("../app/globals.css");
-  assert.match(css, /������ ���� ���п� ���/);
+  assert.match(css, /색상은 상태 구분에 사용/);
   assert.match(css, /input:focus-visible[\s\S]*outline:\s*2px\s*solid\s*color-mix\(in\s*srgb,\s*var\(--ink\)/);
   assert.match(css, /\.settings-content\s*>\s*section:target\s*\{[^}]*outline:\s*1px\s*solid[^}]*box-shadow:\s*var\(--shadow\)/);
   assert.match(css, /\.rate-card-list\s*>\s*button\.active,[\s\S]*\.quote-item-block\.selected,[\s\S]*box-shadow:\s*none/);
@@ -285,17 +285,17 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /role="progressbar"/);
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
   assert.match(graph, /workflow-track-progress/);
-  assert.match(graph, /Ȯ��\s*�ʿ�/);
+  assert.match(graph, /확인\s*필요/);
   assert.match(graph, /routeNodes/);
   assert.match(graph, /skippedNodes/);
-  assert.match(graph, /�ش�\s*����/);
+  assert.match(graph, /해당\s*없음/);
   assert.match(css, /\.workflow-node\.skipped/);
   assert.match(css, /\.workflow-track\.moving\s*\.workflow-track-progress::after/);
   assert.match(css, /@keyframes\s*workflowTrackSignal/);
   assert.doesNotMatch(graph, /workflow-link/);
   assert.doesNotMatch(graph, /node-orbit|signal-bars/);
   assert.match(workspace, /route\.selected/);
-  assert.match(workspace, /Tool\s*���/);
+  assert.match(workspace, /Tool\s*사용/);
   assert.match(workspace, /reasonCodes/);
   assert.match(workspace, /decisionSource/);
   assert.match(workspace, /PROJECT_ANALYSIS_FULL_WORKFLOW/);
@@ -312,7 +312,7 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /run\.completed/);
   assert.match(graph, /function\s*recordedCompletedNodes\(events:\s*WorkflowEvent\[\]\)/);
   assert.match(graph, /expectedNodes\.find\(\(node\)\s*=>\s*!eventCompletedNodes\.includes\(node\)\)/);
-  assert.match(workspace, /REACT_TOOL_CALL_INVALID:\s*"AI\s*����\s*������\s*�ڵ�����\s*�ٽ�\s*Ȯ��������/);
+  assert.match(workspace, /REACT_TOOL_CALL_INVALID:\s*"AI\s*응답\s*형식을\s*자동으로\s*다시\s*확인했지만/);
   assert.match(workspace, /runFailureMessage\(view\?\.errorCode\s*\?\?\s*null\)/);
 });
 
@@ -337,7 +337,7 @@ test("Agent SSE reconnects from the last durable event with bounded backoff", as
   assert.match(workspace, /!isActiveStreamStatus\(runStatus\)/);
   assert.match(workspace, /window\.clearTimeout\(retryTimer\)/);
   assert.match(workspace, /aria-live="polite"/);
-  assert.match(workspace, /�翬��\s*��/);
+  assert.match(workspace, /재연결\s*중/);
   assert.match(css, /workspace-live-status\s*span\.reconnecting/);
 });
 
@@ -370,10 +370,10 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
   assert.match(workspace, /permissions\.has\("document\.read"\)/);
   assert.match(workspace, /projectResult\.find\(\(item\)\s*=>\s*item\.id\s*===\s*location\.projectId\)/);
   assert.match(workspace, /selectedProjectIdRef\.current\s*!==\s*project\.id/);
-  assert.doesNotMatch(workspace, /aria-label="������Ʈ\s*�ٷΰ���"/);
-  assert.doesNotMatch(workspace, /aria-label="������Ʈ\s*���"/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트\s*바로가기"/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트\s*목록"/);
   assert.match(workspace, /className="pipeline-list-open"\s*onClick=\{\(\)\s*=>\s*onSelect\(project\)\}/);
-  assert.match(workspace, /aria-label="������Ʈ\s*�˻�"/);
+  assert.match(workspace, /aria-label="프로젝트\s*검색"/);
   assert.match(css, /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /\.workspace-sidebar\s*nav\s*\{\s*display:\s*none;\s*\}/);
 });
@@ -395,7 +395,7 @@ test("responsive and reduced-motion gates cover the documented breakpoints", asy
   assert.match(css, /\.accordion-content\s*strong\s*\{[^}]*word-break:\s*keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
   assert.match(css, /scroll-padding-top:\s*112px/);
-  assert.match(page, /��ǰ\s*����\s*�ܰ�\s*����/);
+  assert.match(page, /제품\s*예시\s*단계\s*선택/);
   assert.match(page, /aria-controls="workflow-example"/);
 });
 
@@ -423,20 +423,20 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(workspace, /createQuotation/);
   assert.match(workspace, /basis\.content/);
   assert.match(workspace, /sourceReference:\s*event\.target\.value/);
-  assert.match(workspace, /�ٰŴ�\s*��ó\s*������\s*������\s*�ʼ��Դϴ�/);
+  assert.match(workspace, /근거는\s*출처\s*유형과\s*참조가\s*필수입니다/);
   assert.match(workspace, /evidence-inspector/);
-  assert.match(workspace, /aria-label="����\s*�ܰ�ǥ"/);
+  assert.match(workspace, /aria-label="서비스\s*단가표"/);
   assert.match(workspace, /rateCardId:\s*card\.id/);
-  assert.match(workspace, /aria-label="����\s*�ó�����\s*��"/);
-  assert.match(workspace, /className="quote-field-label">����/);
-  assert.match(workspace, /className="quote-field-label">����/);
-  assert.match(workspace, /className="quote-field-label">�ܰ�/);
+  assert.match(workspace, /aria-label="견적\s*시나리오\s*비교"/);
+  assert.match(workspace, /className="quote-field-label">수량/);
+  assert.match(workspace, /className="quote-field-label">단위/);
+  assert.match(workspace, /className="quote-field-label">단가/);
   assert.match(workspace, /formatMoney\(preview\.items\[index\]\.total, project\.currency\)/);
   assert.match(workspace, /latestByScenario/);
   assert.match(workspace, /loadQuotation\(quotation\)/);
   assert.match(workspace, /saveOutcome/);
   assert.match(workspace, /reviseQuotation/);
-  assert.match(workspace, /�����\s*Ȯ��\s*revision\s*����/);
+  assert.match(workspace, /사용자\s*확정\s*revision\s*저장/);
   assert.match(api, /\/quotations\/\$\{quotationId\}\/publish/);
   assert.match(api, /\/quotations\/\$\{quotationId\}\/revisions/);
   assert.match(api, /\/proposal-shares\/\$\{shareId\}/);
@@ -444,7 +444,7 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(proposal, /submitProposalDecision/);
   assert.match(proposal, /CHANGES_REQUESTED/);
   assert.match(proposal, /window\.print/);
-  assert.match(workspace, /��ũ\s*��Ȱ��ȭ/);
+  assert.match(workspace, /링크\s*비활성화/);
   assert.match(css, /\.quote-item-block\s*\{[^}]*border-radius:\s*12px/);
   assert.match(css, /\.quote-row\s*input,[\s\S]*?background:\s*var\(--surface-2\)/);
   assert.match(css, /\.quote-row\s*\{[^}]*grid-template-columns:\s*minmax\(220px,\s*1\.8fr\)/);
@@ -462,8 +462,8 @@ test("pipeline, onboarding settings, and structured intake are API-backed", asyn
   assert.match(workspace, /saveRateCard/);
   assert.match(workspace, /saveEstimationPolicy/);
   assert.match(workspace, /createDocument/);
-  assert.match(workspace, /�׸�\s*����\s*���/);
-  assert.match(workspace, /����\s*���\s*����/);
+  assert.match(workspace, /항목별\s*실제\s*결과/);
+  assert.match(workspace, /예상\s*대비\s*오차/);
   assert.match(workspace, /revenueVariance/);
   assert.match(workspace, /hoursVariance/);
   assert.match(workspace, /refreshAuthSession/);
@@ -486,12 +486,12 @@ test("CRM lifecycle and project-to-client linking use the Spring client contract
   assert.match(workspace, /updateClient/);
   assert.match(workspace, /archiveClient/);
   assert.match(workspace, /name="clientId"/);
-  assert.match(workspace, /����\s*������Ʈ\s*������\s*�����˴ϴ�/);
+  assert.match(workspace, /기존\s*프로젝트\s*연결은\s*유지됩니다/);
   assert.match(api, /clients:\$\{session\.workspaceId\}/);
   assert.match(api, /\/clients\/\$\{clientId\}/);
   assert.match(api, /clientId:\s*string\s*\|\s*null/);
   assert.match(workspace, /function\s*projectClientLabel\(project:\s*Project,\s*clients:\s*Client\[\],\s*translate:/);
-  assert.match(workspace, /client\.companyName\s*\?\s*`\$\{client\.companyName\}\s*��\s*\$\{client\.name\}`\s*:\s*client\.name/);
+  assert.match(workspace, /client\.companyName\s*\?\s*`\$\{client\.companyName\}\s*·\s*\$\{client\.name\}`\s*:\s*client\.name/);
   assert.match(workspace, /className="pipeline-card-client"/);
   assert.doesNotMatch(workspace, /className="sidebar-project-client"/);
   assert.match(workspace, /className="project-client"/);
@@ -509,8 +509,8 @@ test("workspace switching and agent cancellation preserve recoverable operator c
   assert.match(workspace, /activePermissions\.has\("client\.read"\)/);
   assert.match(workspace, /permissions\.has\("document\.delete"\)/);
   assert.match(workspace, /cancelAgentRun/);
-  assert.match(workspace, /��\s*�м�\s*�غ�/);
-  assert.match(workspace, /�����\s*������Ʈ��\s*����\s*�����\s*�������\s*�ʽ��ϴ�/);
+  assert.match(workspace, /새\s*분석\s*준비/);
+  assert.match(workspace, /저장된\s*프로젝트와\s*이전\s*결과는\s*변경되지\s*않습니다/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/cancel/);
 });
 
@@ -525,7 +525,7 @@ test("expired access tokens use one coordinated refresh and retry the original S
   assert.match(api, /refreshTokenExpiresAt/);
   assert.match(api, /SESSION_RECOVERY_EVENT/);
   assert.match(workspace, /subscribeToSessionRecovery/);
-  assert.match(workspace, /�α���\s*�ð���\s*����Ǿ����ϴ�\.\s*�ٽ�\s*�α�����\s*�ּ���/);
+  assert.match(workspace, /로그인\s*시간이\s*만료되었습니다\.\s*다시\s*로그인해\s*주세요/);
 });
 
 test("session refresh scheduling stays inside the browser timer range", async () => {
@@ -548,7 +548,7 @@ test("quotation drafts are scoped, validated, expiring, and recoverable", async 
     baseQuotationId: "quotation-3",
     taxRate: 0.1,
     validUntil: "2026-09-01",
-    items: [{ rateCardId: null, title: "�˼�", description: "", quantity: 2, unit: "DAY", unitRate: 500000, discountRate: 0, basis: { type: "ASSUMPTION", content: "ȭ�� 3��", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }],
+    items: [{ rateCardId: null, title: "검수", description: "", quantity: 2, unit: "DAY", unitRate: 500000, discountRate: 0, basis: { type: "ASSUMPTION", content: "화면 3종", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }],
   };
   const draft = createQuotationDraft(input, now);
   assert.equal(quotationDraftKey("user-1", input.workspaceId, input.projectId), "freelance-ops-quotation-draft-v1:user-1:workspace%20%2F%20alpha:project-17");
@@ -569,9 +569,9 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
   assert.match(workspace, /window\.sessionStorage\.setItem\(draftStorageKey,\s*JSON\.stringify\(draft\)\)/);
   assert.match(workspace, /window\.sessionStorage\.removeItem\(draftStorageKey\)/);
   assert.match(workspace, /window\.addEventListener\("beforeunload",\s*warnBeforeUnload\)/);
-  assert.match(workspace, /�ۼ�\s*����\s*������\s*������\s*������\s*��������\s*�ҷ��ñ��/);
-  assert.match(workspace, /�ۼ�\s*���̴�\s*������\s*�ҷ��Խ��ϴ�/);
-  assert.match(workspace, /�ٸ�\s*������������\s*�̾\s*��\s*��\s*�����ϴ�/);
+  assert.match(workspace, /작성\s*중인\s*내용을\s*버리고\s*선택한\s*견적안을\s*불러올까요/);
+  assert.match(workspace, /작성\s*중이던\s*견적을\s*불러왔습니다/);
+  assert.match(workspace, /다른\s*브라우저에서는\s*이어서\s*볼\s*수\s*없습니다/);
   assert.match(css, /\.quote-draft-state/);
   assert.match(css, /\.quote-draft-state\.unavailable/);
 });
@@ -579,7 +579,7 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
 test("a discarded AI quotation scenario stays hidden only for the same generated content", async () => {
   const draft = {
     scenario: "RECOMMENDED",
-    items: [{ title: "API ����", description: "", quantity: 2, unit: "DAY", rateCardHint: "�鿣�� ����", basis: { type: "ASSUMPTION", content: "���� Ȯ��" } }],
+    items: [{ title: "API 구현", description: "", quantity: 2, unit: "DAY", rateCardHint: "백엔드 개발", basis: { type: "ASSUMPTION", content: "범위 확정" } }],
   };
   const fingerprint = quotationAIDraftFingerprint(draft);
   const stored = createQuotationAIDraftDismissals([fingerprint, fingerprint]);
@@ -590,19 +590,19 @@ test("a discarded AI quotation scenario stays hidden only for the same generated
   assert.deepEqual(parseQuotationAIDraftDismissals("not-json"), []);
 
   const workspace = await read("../app/workspace/page.tsx");
-  assert.match(workspace, /AI\s*\{quotationScenarioLabels\[scenario\]\}\s*������/);
-  assert.match(workspace, /�����\s*������\s*�ٸ�\s*��������\s*�״��\s*�����˴ϴ�/);
-  assert.match(workspace, /�ʾ�\s*����/);
-  assert.match(workspace, /��\s*�м�����\s*�ٽ�\s*�����˴ϴ�/);
+  assert.match(workspace, /AI\s*\{quotationScenarioLabels\[scenario\]\}\s*버리기/);
+  assert.match(workspace, /저장된\s*견적과\s*다른\s*견적안은\s*그대로\s*유지됩니다/);
+  assert.match(workspace, /초안\s*폐기됨/);
+  assert.match(workspace, /새\s*분석에서\s*다시\s*생성됩니다/);
 });
 
 test("workspace presents operational AI metadata in human-readable labels", async () => {
   const workspace = await read("../app/workspace/page.tsx");
   assert.match(workspace, /const\s*eventActivityLabels/);
-  assert.match(workspace, /"run\.completed":\s*"�м�\s*�Ϸ�"/);
-  assert.match(workspace, /eventActivityLabels\[event\.type\]\s*\?\?\s*"�м�\s*����"/);
-  assert.match(workspace, /departmentLabels\[result\.department\]\s*\?\?\s*"�м�\s*�ܰ�"/);
-  assert.match(workspace, /<summary>����\s*����<\/summary>/);
+  assert.match(workspace, /"run\.completed":\s*"분석\s*완료"/);
+  assert.match(workspace, /eventActivityLabels\[event\.type\]\s*\?\?\s*"분석\s*진행"/);
+  assert.match(workspace, /departmentLabels\[result\.department\]\s*\?\?\s*"분석\s*단계"/);
+  assert.match(workspace, /<summary>실행\s*정보<\/summary>/);
   assert.match(workspace, /costStatusLabels\[costUsage\.costStatus\]/);
   assert.doesNotMatch(workspace, /<span>\s*\{event\.type\}\s*<\/span>/);
 });
@@ -617,16 +617,16 @@ test("completed AI analysis prices its editable draft from active server rate ca
   assert.match(api, /quotationDrafts:\s*AgentQuotationDraft\[\]/);
   assert.match(workspace, /quotationDrafts=\{conversation.view\?\.settings.acceptedDraft/);
   assert.match(workspace, /function\s*quotationDraftItems\(draft:\s*AgentQuotationDraft,\s*rateCards:\s*RateCard\[\],\s*currency:\s*string\)/);
-  assert.match(workspace, /�ٽɡ����塤Ȯ��\s*3��\s*��������\s*�غ��߽��ϴ�/);
+  assert.match(workspace, /핵심·권장·확장\s*3개\s*견적안을\s*준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);
-  assert.match(workspace, /AI\s*�ʾ�\s*��\s*\{generated\.items\.length\}\s*��\s*�۾�/);
+  assert.match(workspace, /AI\s*초안\s*·\s*\{generated\.items\.length\}\s*개\s*작업/);
   assert.match(workspace, /selectRateCardForDraftItem\(item,\s*rateCards,\s*currency\)/);
   assert.match(workspace, /hydrateMissingDraftRates\(restored\.items,\s*restoredGeneratedItems\)/);
   assert.match(workspace, /const\s*activeRateCards\s*=\s*nextRateCards\.filter\(\(card\)\s*=>\s*card\.active\)/);
   assert.match(workspace, /const\s*defaultItems\s*=\s*generatedItems\s*\?\?\s*\(latest\s*\?\s*quotationItemsAsInput\(latest\)/);
   assert.match(workspace, /item\.unitRate\s*>\s*0/);
-  assert.match(workspace, /AI��\s*����\s*�ʾ���\s*ä�����ϴ�/);
-  assert.match(workspace, /����\s*�ʾ�\s*����/);
+  assert.match(workspace, /AI가\s*견적\s*초안을\s*채웠습니다/);
+  assert.match(workspace, /견적\s*초안\s*검토/);
   assert.match(css, /\.ai-quote-ready/);
   assert.match(css, /\.quote-draft-state\.generated/);
   assert.match(css, /\.quote-select-control\s*select/);
@@ -635,16 +635,16 @@ test("completed AI analysis prices its editable draft from active server rate ca
 
 test("rate-card matching deterministically fills generated and restored zero-price items", () => {
   const cards = [
-    { id: "day-general", name: "�Ϲ� ����", unit: "DAY", rate: 400000, currency: "KRW", active: true },
-    { id: "day-backend", name: "�鿣�� ����", unit: "DAY", rate: 550000, currency: "KRW", active: true },
-    { id: "hour-backend", name: "�鿣�� ����", unit: "HOUR", rate: 80000, currency: "KRW", active: true },
+    { id: "day-general", name: "일반 개발", unit: "DAY", rate: 400000, currency: "KRW", active: true },
+    { id: "day-backend", name: "백엔드 개발", unit: "DAY", rate: 550000, currency: "KRW", active: true },
+    { id: "hour-backend", name: "백엔드 개발", unit: "HOUR", rate: 80000, currency: "KRW", active: true },
   ];
-  const item = { title: "API ����", description: "���� API�� �����մϴ�.", quantity: 2, unit: "DAY", rateCardHint: "�鿣�� ����" };
+  const item = { title: "API 구현", description: "인증 API를 개발합니다.", quantity: 2, unit: "DAY", rateCardHint: "백엔드 개발" };
   assert.equal(selectRateCardForDraftItem(item, cards, "KRW")?.id, "day-backend");
-  assert.equal(selectRateCardForDraftItem({ ...item, rateCardHint: null, title: "��Ÿ �۾�", description: "" }, cards, "KRW")?.id, "day-general");
+  assert.equal(selectRateCardForDraftItem({ ...item, rateCardHint: null, title: "기타 작업", description: "" }, cards, "KRW")?.id, "day-general");
   assert.equal(selectRateCardForDraftItem(item, cards, "USD"), null);
 
-  const restored = [{ rateCardId: null, title: "API ����", description: "", quantity: 2, unit: "DAY", unitRate: 0, discountRate: 0, basis: { type: "ASSUMPTION", content: "��� Ȯ��", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }];
+  const restored = [{ rateCardId: null, title: "API 구현", description: "", quantity: 2, unit: "DAY", unitRate: 0, discountRate: 0, basis: { type: "ASSUMPTION", content: "사양 확정", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }];
   const generated = [{ ...restored[0], rateCardId: "day-backend", unitRate: 550000 }];
   assert.deepEqual(hydrateMissingDraftRates(restored, generated), generated);
 });
@@ -657,7 +657,7 @@ test("workspace evidence library exposes the complete document lifecycle", async
   assert.match(workspace, /KnowledgePanel/);
   assert.match(workspace, /prepareDocumentUpload/);
   assert.match(workspace, /sourceTypeLabel/);
-  assert.match(workspace, /����\s*AI\s*�м�����\s*����\s*��󿡼�\s*���ܵ˴ϴ�/);
+  assert.match(workspace, /다음\s*AI\s*분석부터\s*참고\s*대상에서\s*제외됩니다/);
   assert.match(workspace, /detail\.chunks\.map/);
   assert.match(workspace, /detail\.sourceMessages\.map/);
   assert.match(workspace, /disabled=\{busy\s*\|\|\s*!reviewed\}/);
@@ -673,11 +673,11 @@ test("project details remain editable after intake without mutating quotation re
     read("../app/lib/api.ts"),
   ]);
   assert.match(workspace, /ProjectEditDialog/);
-  assert.match(workspace, /������Ʈ\s*����\s*����/);
-  assert.match(workspace, /�ּ�\s*������\s*�ִ�\s*���꺸��\s*Ŭ\s*��\s*�����ϴ�/);
-  assert.match(workspace, /�̹�\s*��������\s*����\s*������\s*�״��\s*�����˴ϴ�/);
+  assert.match(workspace, /프로젝트\s*정보\s*수정/);
+  assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
+  assert.match(workspace, /이미\s*고객에게\s*보낸\s*견적은\s*그대로\s*유지됩니다/);
   assert.match(workspace, /structuredOutdated/);
-  assert.match(workspace, /�䱸������\s*�ٽ�\s*Ȯ����\s*��\s*������\s*�ۼ���\s*�ּ���/);
+  assert.match(workspace, /요구사항을\s*다시\s*확인한\s*뒤\s*견적을\s*작성해\s*주세요/);
   assert.match(workspace, /setFeatures\(latest\?\.features\.map/);
   assert.match(workspace, /updateProjectDetails/);
   assert.match(api, /interface\s*ProjectInput/);
@@ -693,8 +693,8 @@ test("transactional forms prevent duplicate submission and keep validation error
   ]);
   assert.match(workspace, /function\s*ProjectDialog/);
   assert.match(workspace, /await\s*onCreate\(/);
-  assert.match(workspace, /������Ʈ��\s*�����\s*�ֽ��ϴ�/);
-  assert.match(workspace, /�ּ�\s*������\s*�ִ�\s*���꺸��\s*Ŭ\s*��\s*�����ϴ�/);
+  assert.match(workspace, /프로젝트를\s*만들고\s*있습니다/);
+  assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
   assert.match(workspace, /<fieldset\s*className="dialog-fields"\s*disabled=\{busy\}>/);
   assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\s*\|\|\s*hasConflict\)\s*return/);
   assert.match(workspace, /const\s*pending\s*=\s*busy\s*\|\|\s*submitting/);
@@ -705,14 +705,14 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /<fieldset\s*className="client-fields"\s*disabled=\{busy\s*\|\|\s*!draftsReady\}>/);
   assert.match(workspace, /<fieldset\s*className="outcome-fields"\s*disabled=\{busy\}>/);
   assert.match(workspace, /password\s*!==\s*String\(data\.get\("passwordConfirm"\)\)/);
-  assert.match(workspace, /��й�ȣ\s*Ȯ����\s*��ġ����\s*�ʽ��ϴ�/);
-  assert.match(workspace, /aria-label=\{showPassword\s*\?\s*"��й�ȣ\s*�����"\s*:\s*"��й�ȣ\s*ǥ��"\}/);
+  assert.match(workspace, /비밀번호\s*확인이\s*일치하지\s*않습니다/);
+  assert.match(workspace, /aria-label=\{showPassword\s*\?\s*"비밀번호\s*숨기기"\s*:\s*"비밀번호\s*표시"\}/);
   assert.match(workspace, /<fieldset\s*className="auth-fields"\s*disabled=\{busy\}>/);
   assert.match(workspace, /const\s*selectMode\s*=\s*\(nextMode:\s*AuthMode\)/);
   assert.match(workspace, /<form\s*className="outcome-form"\s*aria-busy=\{busy\}/);
   assert.match(proposal, /<fieldset\s*className="proposal-response-fields"\s*disabled=\{busy\s*\|\|\s*responseRecorded\}>/);
-  assert.match(proposal, /������\s*����ϰ�\s*�ֽ��ϴ�/);
-  assert.match(api, /������\s*������\s*��\s*�����ϴ�\.\s*��Ʈ��ũ\s*���¸�\s*Ȯ����\s*��\s*�ٽ�\s*�õ���\s*�ּ���/);
+  assert.match(proposal, /응답을\s*기록하고\s*있습니다/);
+  assert.match(api, /서버에\s*연결할\s*수\s*없습니다\.\s*네트워크\s*상태를\s*확인한\s*뒤\s*다시\s*시도해\s*주세요/);
   assert.match(css, /\.dialog-fields:disabled/);
   assert.match(css, /\.proposal-response-fields:disabled/);
   assert.match(css, /\.settings-fields/);
@@ -726,15 +726,15 @@ test("agent results expose reviewable questions and safe source provenance", asy
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /run\.result\.openQuestions/);
-  assert.match(workspace, /����\s*Ȯ����\s*����/);
+  assert.match(workspace, /아직\s*확인할\s*질문/);
   assert.match(workspace, /result\.sources\.length/);
-  assert.match(workspace, /����\s*������\s*��ó/);
+  assert.match(workspace, /검토\s*가능한\s*출처/);
   assert.match(workspace, /externalHttpUrl\(source\.url\)/);
   assert.match(workspace, /url\.protocol\s*===\s*"https:"\s*\|\|\s*url\.protocol\s*===\s*"http:"/);
   assert.match(workspace, /rel="noopener\s*noreferrer"/);
   assert.match(workspace, /run\.metadata\.promptVersion/);
   assert.match(workspace, /<details\s*className="department-results">/);
-  assert.match(workspace, /�м�\s*�ܰ躰\s*��/);
+  assert.match(workspace, /분석\s*단계별\s*상세/);
   assert.match(css, /\.department-results\s*>\s*summary/);
 });
 
@@ -745,9 +745,9 @@ test("quotation revision conflicts preserve the draft and expose explicit recove
   ]);
   assert.match(workspace, /cause\s*instanceof\s*ApiError\s*&&\s*cause\.status\s*===\s*409/);
   assert.match(workspace, /getLatestQuotation\(session,\s*saved\.id\)/);
-  assert.match(workspace, /�ۼ�\s*����\s*������\s*�״��\s*����\s*�ֽ��ϴ�/);
-  assert.match(workspace, /�ֽ�\s*������\s*�ҷ�����/);
-  assert.match(workspace, /����\s*��������\s*���/);
+  assert.match(workspace, /작성\s*중인\s*내용은\s*그대로\s*남아\s*있습니다/);
+  assert.match(workspace, /최신\s*견적안\s*불러오기/);
+  assert.match(workspace, /현재\s*내용으로\s*계속/);
   assert.match(api, /function\s*getLatestQuotation/);
 });
 
@@ -758,7 +758,7 @@ test("terminal agent runs expose server-accounted cost only to audit readers", a
   ]);
   assert.match(workspace, /permissions\.has\("audit\.read"\)/);
   assert.match(workspace, /getAgentRunUsage/);
-  assert.match(workspace, /����\s*AI\s*���/);
+  assert.match(workspace, /예상\s*AI\s*비용/);
   assert.match(workspace, /billableOutcome/);
   assert.match(api, /interface\s*AgentRunUsage/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/usage/);
@@ -770,9 +770,9 @@ test("settings offer personal AI connections without obsolete model-price editin
     read("../app/lib/api.ts"),
     read("../app/lib/admin-members-api.ts"),
   ]);
-  assert.match(workspace, /AI\s*����/);
+  assert.match(workspace, /AI\s*연결/);
   assert.match(workspace, /canConnectAI\s*=\s*permissions\.has\("agent\.run"\)/);
-  assert.doesNotMatch(workspace, /ModelPricingForm|listModelPricing|AI\s*���\s*���/);
+  assert.doesNotMatch(workspace, /ModelPricingForm|listModelPricing|AI\s*사용\s*비용/);
   assert.doesNotMatch(api, /interface\s*ModelPricing/);
   assert.doesNotMatch(api, /\/model-pricing/);
   assert.match(ledger, /platformCostUsd/);
@@ -789,9 +789,9 @@ test("rate cards support the complete server-owned edit and activation lifecycle
   assert.match(workspace, /aria-pressed=\{editorId\s*===\s*card\.id\}/);
   assert.match(workspace, /saveRateCard\(session,\s*selected\.id/);
   assert.match(workspace, /active:\s*!selected\.active/);
-  assert.match(workspace, /��\s*��������\s*��\s*�ܰ���\s*������/);
-  assert.match(workspace, /����\s*��������\s*����/);
-  assert.match(workspace, /�ٽ�\s*���/);
+  assert.match(workspace, /새\s*견적에서\s*이\s*단가를\s*숨길까요/);
+  assert.match(workspace, /기존\s*견적에는\s*유지/);
+  assert.match(workspace, /다시\s*사용/);
   assert.match(workspace, /<fieldset\s*disabled=\{busy\}>/);
   assert.match(workspace, /Number\.isFinite\(rate\)/);
   assert.match(api, /method:\s*"PUT"/);
@@ -809,9 +809,9 @@ test("new workspaces enter a server-backed guided setup before the first inquiry
   assert.match(workspace, /if\s*\(isNewWorkspace\)\s*navigateWorkspace\("settings"/);
   assert.match(workspace, /const\s*setupStates\s*=\s*\[Boolean\(workspace\),\s*hasActiveRateCard,\s*Boolean\(policy\),\s*projectCount\s*>\s*0\]/);
   assert.match(workspace, /role="progressbar"/);
-  assert.match(workspace, /����\s*�ܰ�\s*���/);
-  assert.match(workspace, /���\s*����\s*Ȯ��/);
-  assert.match(workspace, /ù\s*����\s*���/);
+  assert.match(workspace, /서비스\s*단가\s*등록/);
+  assert.match(workspace, /계산\s*기준\s*확인/);
+  assert.match(workspace, /첫\s*문의\s*등록/);
   assert.match(workspace, /onClick=\{onCreateProject\}/);
   assert.match(workspace, /useGSAP/);
   assert.match(css, /\.onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(4/);
@@ -823,7 +823,7 @@ test("settings hides raw RBAC diagnostics and keeps supporting text readable", a
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.doesNotMatch(workspace, /��\s*����\s*����/);
+  assert.doesNotMatch(workspace, /내\s*접근\s*범위/);
   assert.doesNotMatch(workspace, /formatPermissionLabel/);
   assert.match(css, /\.workspace-sidebar\s*nav\s*small,[\s\S]*?font-size:\s*0?\.82rem/);
   assert.match(css, /\.onboarding-step\s*p\s*\{\s*font-size:\s*0?\.84rem/);
@@ -839,12 +839,12 @@ test("project intake compares the current source with the last confirmed revisio
   ]);
   assert.match(workspace, /function\s*requirementTextDelta/);
   assert.match(workspace, /latest\.sourceText\.trim\(\),\s*project\.requirementText\.trim\(\)/);
-  assert.match(workspace, /������\s*����ȭ\s*���\s*��/);
-  assert.match(workspace, /����\s*����ȭ��/);
-  assert.match(workspace, /�����\s*�ʿ�/);
-  assert.match(workspace, /����\s*��������\s*����\s*�κ�/);
-  assert.match(workspace, /����\s*������\s*�߰���\s*�κ�/);
-  assert.match(workspace, /�ڵ�\s*�ǹ�\s*������\s*����\s*�Ϸ��\s*ǥ������\s*�ʽ��ϴ�/);
+  assert.match(workspace, /원문과\s*구조화\s*결과\s*비교/);
+  assert.match(workspace, /원문\s*동기화됨/);
+  assert.match(workspace, /재검토\s*필요/);
+  assert.match(workspace, /이전\s*원문에서\s*빠진\s*부분/);
+  assert.match(workspace, /현재\s*원문에\s*추가된\s*부분/);
+  assert.match(workspace, /자동\s*의미\s*추정은\s*검토\s*완료로\s*표시하지\s*않습니다/);
   assert.match(workspace, /<del>\s*\{textDelta\.removed/);
   assert.match(workspace, /<ins>\s*\{textDelta\.added/);
   assert.match(css, /\.requirement-diff-summary\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
@@ -862,10 +862,10 @@ test("agent runs request enough model calls and output tokens for the four-depar
   assert.match(api, /maxModelCalls:\s*50/);
   assert.match(api, /maxOutputTokens:\s*48000/);
   assert.match(api, /\|\s*"PARTIAL"/);
-  assert.match(workspace, /�Ϻ�\s*�м�\s*�����\s*����\s*�����մϴ�/);
+  assert.match(workspace, /일부\s*분석\s*결과를\s*먼저\s*제공합니다/);
   assert.match(workspace, /run\.status\s*===\s*"PARTIAL"/);
   assert.match(workflow, /"run\.partial":\s*"review"/);
-  assert.match(workflow, /PARTIAL:\s*"�κ�\s*���\s*����"/);
+  assert.match(workflow, /PARTIAL:\s*"부분\s*결과\s*제공"/);
 });
 
 test("waiting agent runs prioritize inline questions and fold execution history", async () => {
@@ -891,24 +891,24 @@ test("workspace supports persistent theme switching and guarded project deletion
   ]);
   assert.match(workspace, /useTheme/);
   assert.match(workspace, /setTheme\(isDarkTheme\s*\?\s*"light"\s*:\s*"dark"\)/);
-  assert.match(workspace, /role="switch"\s*aria-checked=\{isDarkTheme\}\s*aria-label="��ũ\s*���"/);
+  assert.match(workspace, /role="switch"\s*aria-checked=\{isDarkTheme\}\s*aria-label="다크\s*모드"/);
   assert.match(workspace, /permissions\.has\("project\.delete"\)/);
   assert.match(workspace, /deleteConfirmation\s*!==\s*project\.title/);
-  assert.doesNotMatch(workspace, /AI\s*�м���\s*�ߴ���\s*��\s*������\s*��\s*�ֽ��ϴ�/);
+  assert.doesNotMatch(workspace, /AI\s*분석을\s*중단한\s*뒤\s*삭제할\s*수\s*있습니다/);
   assert.match(
     workspace,
-    /����\s*���̰ų�\s*Ȯ��\s*���\s*����\s*AI\s*�м���\s*����\s*�����ϰ�\s*�ߴ��մϴ�/
+    /진행\s*중이거나\s*확인\s*대기\s*중인\s*AI\s*분석은\s*먼저\s*안전하게\s*중단합니다/
   );
   assert.match(workspace, /projectDeletionBlockingStatuses\s*=\s*new\s*Set\(\["QUEUED",\s*"RUNNING",\s*"WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session,\s*projectId\)/);
   assert.match(workspace, /await\s*deleteProject\(session,\s*selectedProject\.id\)/);
   assert.doesNotMatch(workspace, /disabled=\{runLookupPending\s*\|\|\s*deleteBlockedByRun\}/);
-  assert.match(workspace, /����\s*���̰ų�\s*Ȯ����\s*��ٸ���\s*AI\s*�м���\s*�ֽ��ϴ�/);
+  assert.match(workspace, /진행\s*중이거나\s*확인을\s*기다리는\s*AI\s*분석이\s*있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
   assert.match(workspace, /aria-modal="true"/);
-  assert.match(workspace, /������\s*�䱸����/);
-  assert.match(workspace, /AI\s*�м�\s*���/);
-  assert.match(workspace, /������\s*���\s*���/);
+  assert.match(workspace, /정리된\s*요구사항/);
+  assert.match(workspace, /AI\s*분석\s*기록/);
+  assert.match(workspace, /견적과\s*결과\s*기록/);
   assert.match(api, /export\s*function\s*deleteProject/);
   assert.doesNotMatch(api, /deleteProjectWithBestEffortRunCleanup/);
   assert.doesNotMatch(api, /Project\s*deletion\s*must\s*not\s*depend\s*on\s*Agent\s*availability/);
@@ -930,18 +930,18 @@ test("quotation review preserves calculated amounts while standalone AI drafting
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.doesNotMatch(workspace, /AI��\s*���ȹޱ�|AI��\s*�ٵ��/);
+  assert.doesNotMatch(workspace, /AI로\s*제안받기|AI로\s*다듬기/);
   assert.doesNotMatch(await read("../features/workspace/project/quotation/quote-item-basis.tsx"), /ai-assumption-note|providerLabels/);
-  assert.match(workspace, /���\s*����/);
-  assert.match(workspace, /�ڵ�\s*��ȯ/);
+  assert.match(workspace, /경로\s*판정/);
+  assert.match(workspace, /자동\s*전환/);
   assert.doesNotMatch(api, /export\s*function\s*suggestQuotationAssumption/);
   assert.doesNotMatch(api, /quotations\/assumption-suggestions/);
   assert.match(css, /\.quote-amount-field/);
   assert.match(css, /\.quote-amount\s*\{[^}]*height:\s*46px/);
   assert.match(css, /\.quote-summary-controls/);
-  assert.match(workspace, /id="quote-calculation-settings">���\s*����/);
-  assert.match(workspace, /aria-label="����"/);
-  assert.match(workspace, /aria-label="����\s*��ȿ\s*�Ⱓ"/);
+  assert.match(workspace, /id="quote-calculation-settings">계산\s*조건/);
+  assert.match(workspace, /aria-label="세율"/);
+  assert.match(workspace, /aria-label="견적\s*유효\s*기간"/);
   assert.match(css, /\.quote-tax-control/);
   assert.match(css, /\.quote-summary-controls\s*>\s*label\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*132px/);
   assert.match(css, /\.ai-assumption-button/);
@@ -953,8 +953,8 @@ test("outcome review presents deliberate line breaks and complete result inputs"
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /����\s*������Ʈ��\s*����<br\s*\/>������\s*�ٰŷ�\s*���⼼��/);
-  assert.match(workspace, /����\s*������<br\s*\/>����\s*Ȯ���մϴ�/);
+  assert.match(workspace, /끝난\s*프로젝트를\s*다음<br\s*\/>견적의\s*근거로\s*남기세요/);
+  assert.match(workspace, /문의\s*내용을<br\s*\/>먼저\s*확인합니다/);
   assert.match(workspace, /className="outcome-basics"/);
   assert.match(workspace, /className="outcome-metrics-grid"/);
   assert.match(workspace, /className="outcome-input-shell"/);
@@ -964,12 +964,12 @@ test("outcome review presents deliberate line breaks and complete result inputs"
   assert.match(workspace, /className="outcome-date-shell"/);
   assert.match(workspace, /className="outcome-select-shell"/);
   assert.match(workspace, /className="actual-work-heading"/);
-  assert.match(workspace, /ù\s*�׸�\s*�߰�/);
-  assert.match(workspace, /ó��\s*�����\s*�޶���\s*��/);
-  assert.match(workspace, /�߰���\s*����/);
-  assert.match(workspace, /���ܵ�\s*�۾�/);
-  assert.match(workspace, /���������\s*��ȭ/);
-  assert.match(workspace, /Ȯ�ε�\s*�����\s*�߽�����\s*�ۼ��ϼ���/);
+  assert.match(workspace, /첫\s*항목\s*추가/);
+  assert.match(workspace, /처음\s*예상과\s*달라진\s*점/);
+  assert.match(workspace, /추가된\s*범위/);
+  assert.match(workspace, /제외된\s*작업/);
+  assert.match(workspace, /일정·비용\s*변화/);
+  assert.match(workspace, /확인된\s*사실을\s*중심으로\s*작성하세요/);
   assert.match(css, /\.outcome-control\s*input,\s*\.outcome-control\s*select/);
   assert.match(css, /\.outcome-change-card\s*textarea\s*\{[^}]*min-height:\s*156px/);
   assert.match(css, /\.actual-work-empty/);
