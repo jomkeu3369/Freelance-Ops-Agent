@@ -172,10 +172,11 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
 
 test("landing page follows the approved product brief without fabricated social proof", async () => {
   const source = await read("../app/page.tsx");
+  const workflow = await read("../features/home/components/workflow-unfold.tsx");
   assert.match(source, /문의는\s*한마디/);
   assert.match(source, /제안은\s*명확하게/);
   assert.match(source, /AI\s*초안은\s*사용자가\s*검토하고\s*확정합니다/);
-  assert.match(source, /하나의\s*흐름으로\s*이어집니다/);
+  assert.match(workflow, /<h2[^>]*>하나의\s*문의,\s*이어지는\s*다섯\s*단계<\/h2>/);
   assert.match(source, /예시\s*일단가/);
   assert.match(source, /사용자\s*검토\s*필요/);
   assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한\s*AI|모든\s*직군|모든\s*국가|자동\s*학습합니다/);

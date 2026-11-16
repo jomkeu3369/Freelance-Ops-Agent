@@ -13,41 +13,47 @@ REPOSITORY_ROOT = AGENT_ROOT.parent
 RAW_SQL = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE\s+TABLE|ALTER\s+TABLE)\b", re.IGNORECASE)
 FORBIDDEN_OPERATIONAL_IMPORTS = ("departments", "routing.liquid_encoder", "graph.router")
 
+
 def test_operational_modules_do_not_import_experimental_modules() -> None:
     violations: list[str] = []
     src_root = AGENT_ROOT / "src"
-    
+
     for path in src_root.rglob("*.py"):
         rel = path.relative_to(src_root).as_posix()
         if not (rel == "main.py" or rel.startswith(("api/", "runtime/"))):
             continue
-        
+
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "departments" or alias.name.startswith(FORBIDDEN_OPERATIONAL_IMPORTS):
                         violations.append(f"{rel}:{node.lineno}:{alias.name}")
-            
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                if node.module == "departments" or node.module.startswith(FORBIDDEN_OPERATIONAL_IMPORTS):
-                    violations.append(f"{rel}:{node.lineno}:{node.module}")
+
+            elif (
+                isinstance(node, ast.ImportFrom)
+                and node.module
+                and (node.module == "departments" or node.module.startswith(FORBIDDEN_OPERATIONAL_IMPORTS))
+            ):
+                violations.append(f"{rel}:{node.lineno}:{node.module}")
 
     assert violations == []
 
+
 def test_operational_source_contains_no_authored_raw_sql() -> None:
     violations: list[str] = []
-    
-    for path in (AGENT_ROOT / "src").rglob("*.py"):  
+
+    for path in (AGENT_ROOT / "src").rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and RAW_SQL.match(node.value):
                 violations.append(f"{path.relative_to(AGENT_ROOT)}:{node.lineno}")
-            
+
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "text":
                 violations.append(f"{path.relative_to(AGENT_ROOT)}:{node.lineno}")
 
     assert violations == []
+
 
 def test_versioned_contract_covers_every_fastapi_internal_path() -> None:
     contract = yaml.safe_load(
@@ -59,6 +65,7 @@ def test_versioned_contract_covers_every_fastapi_internal_path() -> None:
     }
 
     assert application_paths <= contract_paths
+
 
 def test_agent_container_uses_flat_source_entrypoint() -> None:
     dockerfile = (AGENT_ROOT / "Dockerfile").read_text(encoding="utf-8")
