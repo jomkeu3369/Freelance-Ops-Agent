@@ -1,5 +1,26 @@
 // 소개 페이지의 장면과 가상 제품 예시 문구
 export const homeEnglish = {
+  "프리랜서를 위한 AI 견적서 작성 | Freelance Ops": "AI quote drafting for freelancers | Freelance Ops",
+  "프리랜서를 위한 AI 견적서 작성.": "AI quote drafting for freelancers.",
+  "고객 문의부터 요구사항 분석, 견적과 제안서 초안까지.":
+    "From client inquiries to requirements, estimates and proposal drafts.",
+  "AI 요구사항 분석으로 작업 범위를 정리합니다.": "Use AI requirements analysis to define the scope.",
+  "고객 문의에서 작업 항목과 확인할 질문을 찾고, 원문과 함께 검토하세요.":
+    "Find tasks and open questions in the inquiry, then review them alongside the source.",
+  "외주 개발 견적 산정의 근거를 확인하세요.": "Review the basis of your development estimate.",
+  "AI가 제안한 공수를 검토하고, 등록한 단가와 계산 규칙으로 금액을 산정합니다.":
+    "Review AI-suggested effort, then calculate prices with your saved rates and rules.",
+  "고객의 한마디": "A client's first words",
+  "작업 범위 정리": "A clear scope",
+  "공수와 근거": "Effort with evidence",
+  "검토 가능한 초안": "A draft to review",
+  "프로젝트 진행": "Project progress",
+  "선택한 작업 범위에 맞춰 공수를 계산합니다.": "Effort follows the scope you select.",
+  "선택한 범위가 작업과 계산에 그대로 반영됩니다.": "Your selected scope flows into every task and calculation.",
+  "작업 범위부터 공수와 금액까지, 하나의 기준으로 연결됩니다.":
+    "Scope, effort and price, connected by one shared basis.",
+  "예상 공수에 일단가를 곱해 금액의 근거를 확인합니다.":
+    "Multiply estimated effort by the daily rate to see how the price is built.",
   "문의는 한마디,": "The first words.",
   "제안은 명확하게.": "A clearer proposal.",
   "하나의 문의, 이어지는 다섯 단계": "One inquiry. Five connected stages.",
