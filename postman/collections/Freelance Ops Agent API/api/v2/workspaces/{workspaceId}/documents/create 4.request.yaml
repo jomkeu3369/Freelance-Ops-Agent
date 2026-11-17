@@ -1,0 +1,155 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/documents"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "chunks": [
+        {
+          "content": "string",
+          "embedding": [
+            6886.457449473601,
+            6198.724862398807,
+            9031.777578463008,
+            9042.57693180428,
+            7535.877845389901,
+            9844.33462839095,
+            272.8029734112969,
+            1705.384138769106,
+            2101.273054642603,
+            9494.607958901663,
+            2646.2353119398995,
+            7692.225384190569,
+            2870.1937798203003,
+            6668.854796369339,
+            4011.66971644483,
+            6125.225777845964,
+            1923.5471084407952,
+            6817.62630010799,
+            9957.447428551792,
+            6603.778032111598
+          ],
+          "embeddingModel": "string",
+          "startOffset": 7033,
+          "endOffset": 8914
+        }
+      ],
+      "sourceType": "PLATFORM_TERMS",
+      "title": "string",
+      "sourceUri": "string",
+      "sourceVersion": "string",
+      "jurisdiction": "string",
+      "effectiveFrom": "2010-05-17",
+      "effectiveUntil": "2020-04-20"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "PAST_PROJECT",
+            "POLICY",
+            "PLATFORM_TERMS",
+            "USER_TEMPLATE",
+            "EXTERNAL_SOURCE"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "sourceUri": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000
+        },
+        "sourceVersion": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "jurisdiction": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "effectiveFrom": {
+          "type": "string",
+          "format": "date"
+        },
+        "effectiveUntil": {
+          "type": "string",
+          "format": "date"
+        },
+        "chunks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 20000
+              },
+              "embedding": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "format": "float"
+                }
+              },
+              "embeddingModel": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 120
+              },
+              "startOffset": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "endOffset": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "required": [
+              "content"
+            ]
+          }
+        }
+      },
+      "required": [
+        "chunks",
+        "sourceType",
+        "title"
+      ]
+    }
+settings: {}
+examples: ./.resources/create 4.resources/examples
+order: 2000

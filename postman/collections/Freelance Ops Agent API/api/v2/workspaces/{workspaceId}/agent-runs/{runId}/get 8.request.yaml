@@ -1,0 +1,53 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId"
+method: GET
+headers:
+  - key: traceparent
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: Accept
+    value: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: runId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: text
+  content: ""
+settings: {}
+examples: ./.resources/get 8.resources/examples
+order: 4000

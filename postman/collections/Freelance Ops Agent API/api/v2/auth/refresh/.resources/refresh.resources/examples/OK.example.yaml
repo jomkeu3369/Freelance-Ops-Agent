@@ -1,0 +1,67 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/auth/refresh"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: json
+    content: |-
+      {
+        "refreshToken": "string"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "userId": "3518fd93-ec0e-0cb9-2846-d02b6f64b7b2",
+        "workspaceId": "c5047384-2c77-4a83-064e-7965b50fd114",
+        "accessToken": "string",
+        "accessTokenExpiresAt": "1999-07-23T00:09:40.945Z",
+        "refreshToken": "string",
+        "refreshTokenExpiresAt": "2021-07-09T04:06:50.013Z",
+        "tokenType": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "accessTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "refreshTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tokenType": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

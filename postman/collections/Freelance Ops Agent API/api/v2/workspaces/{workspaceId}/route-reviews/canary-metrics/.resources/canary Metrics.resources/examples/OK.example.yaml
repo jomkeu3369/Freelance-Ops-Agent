@@ -1,0 +1,166 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/canary-metrics?since=1954-05-17T01:16:48.401Z&checkpoint=381"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    since: 1954-05-17T01:16:48.401Z
+    checkpoint: "381"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "since": "1985-07-31T14:11:26.528Z",
+        "generatedAt": "1964-02-25T15:07:23.269Z",
+        "checkpoint": 4588,
+        "simultaneousConfidence": 2544.3037149068737,
+        "completedGold": 3593,
+        "pendingAdjudications": 9243,
+        "seniorAudits": 1337,
+        "dualCompleted": 1277,
+        "disagreements": 2819,
+        "riskAvailableConsensusAudits": 7671,
+        "naturalAvailableConsensusAudits": 8832,
+        "riskConsensusOverturn": {
+          "errors": 8563,
+          "total": 1858,
+          "estimate": 2198.7620093353075,
+          "lower": 1518.920301025526,
+          "upper": 1562.1223167959697,
+          "decision": "string"
+        },
+        "naturalConsensusOverturn": {
+          "errors": 9601,
+          "total": 5853,
+          "estimate": 1009.54914677857,
+          "lower": 1364.413560529174,
+          "upper": 2596.954477731117,
+          "decision": "string"
+        },
+        "overallDecision": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkpoint": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "simultaneousConfidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "completedGold": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pendingAdjudications": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seniorAudits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dualCompleted": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disagreements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "riskAvailableConsensusAudits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "naturalAvailableConsensusAudits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "riskConsensusOverturn": {
+            "type": "object",
+            "properties": {
+              "errors": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "total": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "estimate": {
+                "type": "number",
+                "format": "double"
+              },
+              "lower": {
+                "type": "number",
+                "format": "double"
+              },
+              "upper": {
+                "type": "number",
+                "format": "double"
+              },
+              "decision": {
+                "type": "string"
+              }
+            }
+          },
+          "naturalConsensusOverturn": {
+            "type": "object",
+            "properties": {
+              "errors": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "total": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "estimate": {
+                "type": "number",
+                "format": "double"
+              },
+              "lower": {
+                "type": "number",
+                "format": "double"
+              },
+              "upper": {
+                "type": "number",
+                "format": "double"
+              },
+              "decision": {
+                "type": "string"
+              }
+            }
+          },
+          "overallDecision": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

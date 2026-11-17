@@ -1,0 +1,113 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/pet-generations"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "description": "string",
+      "modelSelection": {
+        "model": "string",
+        "provider": "OPENAI",
+        "reasoningEffort": "LOW",
+        "credentialId": "b59dcda3-cc50-150f-4b0f-90b8478efa9b"
+      },
+      "slot": "LEAN"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "modelSelection": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "OPENAI",
+                "GEMINI"
+              ]
+            },
+            "model": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 100
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "LOW",
+                "MEDIUM",
+                "HIGH"
+              ]
+            },
+            "credentialId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "model",
+            "provider",
+            "reasoningEffort"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "slot": {
+          "type": "string",
+          "pattern": "LEAN|RECOMMENDED|EXPANDED"
+        }
+      },
+      "required": [
+        "description",
+        "modelSelection",
+        "slot"
+      ]
+    }
+settings: {}
+examples: ./.resources/generate.resources/examples
+order: 1000

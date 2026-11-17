@@ -1,0 +1,129 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects?search=string"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    search: string
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "464d714c-1a2f-018f-0d22-845885781694",
+          "workspaceId": "64bcabc5-b514-270e-6ff2-a03c37e72c03",
+          "clientId": "d59cf514-a8f1-17a8-6536-f1cfc89a6950",
+          "title": "string",
+          "requirementText": "string",
+          "currency": "string",
+          "deadline": "1974-02-23",
+          "budgetMin": 761.9568435245704,
+          "budgetMax": 1047.4593026582247,
+          "status": "CANCELLED",
+          "createdBy": "bc2f25ef-f759-c21a-b2f5-dec5a09c7dee",
+          "createdAt": "1953-05-17T14:21:41.579Z",
+          "updatedAt": "1976-09-16T08:41:52.615Z",
+          "version": 3338
+        },
+        {
+          "id": "90e939f0-2365-cb2d-5279-6c4b54c85117",
+          "workspaceId": "9349285d-fc81-980e-2f0a-0ffa1b9162dc",
+          "clientId": "893cc485-bacf-6da4-44dd-95106b0952e7",
+          "title": "string",
+          "requirementText": "string",
+          "currency": "string",
+          "deadline": "2026-01-07",
+          "budgetMin": 4957.666080219307,
+          "budgetMax": 567.2886148138756,
+          "status": "NEGOTIATING",
+          "createdBy": "415d9d85-cb61-de7e-e312-5086bd078ddf",
+          "createdAt": "1998-07-28T10:42:51.375Z",
+          "updatedAt": "2006-03-22T15:24:20.778Z",
+          "version": 8124
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clientId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "title": {
+              "type": "string"
+            },
+            "requirementText": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "deadline": {
+              "type": "string",
+              "format": "date"
+            },
+            "budgetMin": {
+              "type": "number"
+            },
+            "budgetMax": {
+              "type": "number"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "LEAD",
+                "QUALIFYING",
+                "QUOTING",
+                "NEGOTIATING",
+                "ACCEPTED",
+                "IN_PROGRESS",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            },
+            "createdBy": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "version": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      }
+order: 1000

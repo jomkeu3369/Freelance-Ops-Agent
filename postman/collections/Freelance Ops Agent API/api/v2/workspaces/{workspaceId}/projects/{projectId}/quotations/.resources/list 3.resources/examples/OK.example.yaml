@@ -1,0 +1,329 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/quotations"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "4ecbbb58-9305-535f-5726-d60d0a96f196",
+          "workspaceId": "9869e67d-861e-cae7-219a-32d01786ecbb",
+          "projectId": "7091b269-2b4f-d397-d81e-f53506fcde93",
+          "seriesId": "e8aad091-6386-da54-d92f-63ab0f004f53",
+          "previousVersionId": "f72e0c7f-5a08-7d49-141d-865fd52ac96f",
+          "versionNumber": 5919,
+          "scenario": "EXPANDED",
+          "status": "SUPERSEDED",
+          "currency": "string",
+          "subtotal": 873.4173852307104,
+          "discountTotal": 5657.990706101908,
+          "riskBufferRate": 5162.791619659346,
+          "riskBufferAmount": 3469.016256373203,
+          "taxRate": 2270.273772190373,
+          "taxAmount": 4488.215433121064,
+          "total": 2333.2231826923553,
+          "validUntil": "1980-03-25",
+          "items": [
+            {
+              "rateCardId": "aff3aeb3-ed09-15c2-8f21-b53e84a22912",
+              "title": "string",
+              "description": "string",
+              "quantity": 84.8324163724301,
+              "unit": "FIXED",
+              "unitRate": 6797.488818650471,
+              "subtotal": 2792.88227673491,
+              "discountRate": 3507.217739873937,
+              "discountAmount": 6368.868094037665,
+              "total": 3898.0704138486567,
+              "basis": {
+                "type": "EVIDENCE",
+                "content": "string",
+                "sourceType": "USER_TEMPLATE",
+                "sourceReference": "string",
+                "sourceTitle": "string",
+                "retrievedAt": "1952-08-08T16:46:16.161Z"
+              }
+            },
+            {
+              "rateCardId": "061fc2cf-e5a8-7f5a-997f-f41eafcfc842",
+              "title": "string",
+              "description": "string",
+              "quantity": 8313.052533806665,
+              "unit": "FIXED",
+              "unitRate": 5885.099919693487,
+              "subtotal": 1984.7036787924844,
+              "discountRate": 5727.531813719967,
+              "discountAmount": 3499.045110441501,
+              "total": 8705.149470008442,
+              "basis": {
+                "type": "ASSUMPTION",
+                "content": "string",
+                "sourceType": "EXTERNAL_SOURCE",
+                "sourceReference": "string",
+                "sourceTitle": "string",
+                "retrievedAt": "2019-12-02T10:46:43.786Z"
+              }
+            }
+          ],
+          "publishedAt": "2020-12-18T17:24:05.282Z",
+          "createdBy": "1410d2ed-e0b2-b78f-fd2d-46cbfc6d974b",
+          "createdAt": "1983-10-05T14:13:39.155Z",
+          "version": 2693
+        },
+        {
+          "id": "9ef9dcb8-3766-b47f-4a7e-d9730fa1b7b7",
+          "workspaceId": "806d81d7-5197-8abc-ea14-3e827aec3284",
+          "projectId": "b51b3efe-2169-1244-0836-f0afd3c53460",
+          "seriesId": "46ad3d55-4f43-746f-d0aa-69796291be4a",
+          "previousVersionId": "9e3b9d76-6230-41e2-a365-c5d7bae90372",
+          "versionNumber": 9565,
+          "scenario": "RECOMMENDED",
+          "status": "SUPERSEDED",
+          "currency": "string",
+          "subtotal": 85.48747206695073,
+          "discountTotal": 5174.069215648022,
+          "riskBufferRate": 3397.174511138369,
+          "riskBufferAmount": 895.7551118186369,
+          "taxRate": 5944.913732419719,
+          "taxAmount": 6065.832884633197,
+          "total": 9588.410338251377,
+          "validUntil": "1973-08-17",
+          "items": [
+            {
+              "rateCardId": "d12481d5-0a42-c31a-46e0-bdae154aa713",
+              "title": "string",
+              "description": "string",
+              "quantity": 4650.227876939741,
+              "unit": "DAY",
+              "unitRate": 9514.248389437322,
+              "subtotal": 9612.021263762048,
+              "discountRate": 3527.529380506043,
+              "discountAmount": 1316.0704032832182,
+              "total": 7592.39992237243,
+              "basis": {
+                "type": "ASSUMPTION",
+                "content": "string",
+                "sourceType": "EXTERNAL_SOURCE",
+                "sourceReference": "string",
+                "sourceTitle": "string",
+                "retrievedAt": "1985-09-17T19:57:51.196Z"
+              }
+            },
+            {
+              "rateCardId": "6ad60673-1c3e-e53a-11da-e4d3cd7d530a",
+              "title": "string",
+              "description": "string",
+              "quantity": 3042.2035903266597,
+              "unit": "FIXED",
+              "unitRate": 7087.42724302121,
+              "subtotal": 9882.92989670019,
+              "discountRate": 2234.8845513774927,
+              "discountAmount": 4425.810785751826,
+              "total": 8449.0172111282,
+              "basis": {
+                "type": "ASSUMPTION",
+                "content": "string",
+                "sourceType": "USER_TEMPLATE",
+                "sourceReference": "string",
+                "sourceTitle": "string",
+                "retrievedAt": "1997-02-19T21:38:51.986Z"
+              }
+            }
+          ],
+          "publishedAt": "1961-05-24T09:05:18.988Z",
+          "createdBy": "ae460ee0-0295-f70d-a634-9022ed6c75b8",
+          "createdAt": "1964-09-22T09:39:43.301Z",
+          "version": 4538
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "projectId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "seriesId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "previousVersionId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "versionNumber": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "scenario": {
+              "type": "string",
+              "enum": [
+                "LEAN",
+                "RECOMMENDED",
+                "EXPANDED"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "SUPERSEDED"
+              ]
+            },
+            "currency": {
+              "type": "string"
+            },
+            "subtotal": {
+              "type": "number"
+            },
+            "discountTotal": {
+              "type": "number"
+            },
+            "riskBufferRate": {
+              "type": "number"
+            },
+            "riskBufferAmount": {
+              "type": "number"
+            },
+            "taxRate": {
+              "type": "number"
+            },
+            "taxAmount": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "validUntil": {
+              "type": "string",
+              "format": "date"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "rateCardId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "HOUR",
+                      "DAY",
+                      "FIXED"
+                    ]
+                  },
+                  "unitRate": {
+                    "type": "number"
+                  },
+                  "subtotal": {
+                    "type": "number"
+                  },
+                  "discountRate": {
+                    "type": "number"
+                  },
+                  "discountAmount": {
+                    "type": "number"
+                  },
+                  "total": {
+                    "type": "number"
+                  },
+                  "basis": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "ASSUMPTION",
+                          "EVIDENCE"
+                        ]
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "sourceType": {
+                        "type": "string",
+                        "enum": [
+                          "PAST_PROJECT",
+                          "POLICY",
+                          "PLATFORM_TERMS",
+                          "USER_TEMPLATE",
+                          "EXTERNAL_SOURCE"
+                        ]
+                      },
+                      "sourceReference": {
+                        "type": "string"
+                      },
+                      "sourceTitle": {
+                        "type": "string"
+                      },
+                      "retrievedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "publishedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "createdBy": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "version": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      }
+order: 1000

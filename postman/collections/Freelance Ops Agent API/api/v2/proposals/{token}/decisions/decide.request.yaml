@@ -1,0 +1,70 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/proposals/:token/decisions"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: token
+    value: string
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "clientName": "string",
+      "decision": "REJECTED",
+      "clientEmail": "T2UOs@euCqaQIqLzyaPGSgJZRgERyxMVA.ig",
+      "comment": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "APPROVED",
+            "CHANGES_REQUESTED",
+            "REJECTED"
+          ]
+        },
+        "clientName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "clientEmail": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 320,
+          "format": "email"
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 3000
+        }
+      },
+      "required": [
+        "clientName",
+        "decision"
+      ]
+    }
+settings: {}
+examples: ./.resources/decide.resources/examples
+order: 1000

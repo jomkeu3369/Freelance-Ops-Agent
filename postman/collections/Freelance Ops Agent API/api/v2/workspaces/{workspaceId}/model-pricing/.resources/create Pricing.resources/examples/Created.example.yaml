@@ -1,0 +1,92 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/model-pricing"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "cachedInputPerMillion": 8105.385295537366,
+        "currency": "VTN",
+        "inputPerMillion": 6542.674663209943,
+        "model": "string",
+        "outputPerMillion": 5220.727479275887,
+        "provider": "OPENAI",
+        "validFrom": "1983-03-21T06:58:36.195Z",
+        "versionLabel": "string",
+        "validUntil": "2009-07-01T12:50:43.769Z"
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "6da1c2aa-d439-3f0a-741c-f59b15869cd0",
+        "provider": "OPENAI",
+        "model": "string",
+        "versionLabel": "string",
+        "currency": "string",
+        "inputPerMillion": 3473.174293243676,
+        "cachedInputPerMillion": 2964.184418085928,
+        "outputPerMillion": 969.368234788831,
+        "validFrom": "1989-01-08T03:48:05.629Z",
+        "validUntil": "1993-11-04T08:09:17.097Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "GEMINI"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "versionLabel": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "inputPerMillion": {
+            "type": "number"
+          },
+          "cachedInputPerMillion": {
+            "type": "number"
+          },
+          "outputPerMillion": {
+            "type": "number"
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

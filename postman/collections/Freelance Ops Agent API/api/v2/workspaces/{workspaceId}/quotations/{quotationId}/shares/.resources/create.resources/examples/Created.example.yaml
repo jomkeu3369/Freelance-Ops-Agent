@@ -1,0 +1,61 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/quotations/:quotationId/shares"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    quotationId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "expiresInDays": 28
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "shareId": "0ddb121f-e5c7-7a52-a323-4de0918dd884",
+        "token": "string",
+        "publicPath": "string",
+        "expiresAt": "1968-03-11T06:53:22.248Z",
+        "createdAt": "1990-04-28T04:50:07.081Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "shareId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string"
+          },
+          "publicPath": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

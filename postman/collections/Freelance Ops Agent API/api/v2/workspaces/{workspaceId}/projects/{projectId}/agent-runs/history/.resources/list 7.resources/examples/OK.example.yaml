@@ -1,0 +1,136 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/agent-runs/history?limit=20"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    limit: "20"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "runId": "fe5cebdf-2a18-24de-f7be-cf253ac0c6b7",
+          "requirementText": "string",
+          "status": "PARTIAL",
+          "createdAt": "2003-01-26T13:34:46.735Z",
+          "attachments": [
+            {
+              "name": "string",
+              "status": "string",
+              "notice": "string"
+            },
+            {
+              "name": "string",
+              "status": "string",
+              "notice": "string"
+            }
+          ],
+          "originalInputStatus": "UNAVAILABLE",
+          "originalInputIssue": "MALFORMED_PAYLOAD"
+        },
+        {
+          "runId": "2a6697c6-b020-1c62-fe0d-65868921af31",
+          "requirementText": "string",
+          "status": "RUNNING",
+          "createdAt": "2016-10-23T19:53:36.281Z",
+          "attachments": [
+            {
+              "name": "string",
+              "status": "string",
+              "notice": "string"
+            },
+            {
+              "name": "string",
+              "status": "string",
+              "notice": "string"
+            }
+          ],
+          "originalInputStatus": "AVAILABLE",
+          "originalInputIssue": "MISSING_INPUT"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "requirementText": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "QUEUED",
+                "RUNNING",
+                "WAITING_FOR_USER",
+                "COMPLETED",
+                "PARTIAL",
+                "FAILED",
+                "CANCELLED"
+              ]
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "notice": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "originalInputStatus": {
+              "type": "string",
+              "enum": [
+                "AVAILABLE",
+                "PARTIAL",
+                "UNAVAILABLE"
+              ]
+            },
+            "originalInputIssue": {
+              "type": "string",
+              "enum": [
+                "MISSING_START",
+                "MALFORMED_PAYLOAD",
+                "MISSING_INPUT",
+                "INVALID_REQUIREMENT_TEXT",
+                "INVALID_ATTACHMENTS"
+              ]
+            }
+          }
+        }
+      }
+order: 1000

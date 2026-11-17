@@ -1,0 +1,287 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/requirements"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "assumptions": [
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string"
+      ],
+      "features": [
+        {
+          "description": "string",
+          "priority": "WONT",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "WONT",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "COULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "COULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "COULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "MUST",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "COULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "WONT",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "COULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "st",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        },
+        {
+          "description": "string",
+          "priority": "SHOULD",
+          "title": "string",
+          "acceptanceCriteria": "string"
+        }
+      ],
+      "questions": [
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "st",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string",
+        "string"
+      ],
+      "sourceText": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "sourceText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 5000
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "MUST",
+                  "SHOULD",
+                  "COULD",
+                  "WONT"
+                ]
+              },
+              "acceptanceCriteria": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 5000
+              }
+            },
+            "required": [
+              "description",
+              "priority",
+              "title"
+            ]
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 3000
+          }
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 3000
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "features",
+        "questions",
+        "sourceText"
+      ]
+    }
+settings: {}
+examples: ./.resources/create 2.resources/examples
+order: 2000

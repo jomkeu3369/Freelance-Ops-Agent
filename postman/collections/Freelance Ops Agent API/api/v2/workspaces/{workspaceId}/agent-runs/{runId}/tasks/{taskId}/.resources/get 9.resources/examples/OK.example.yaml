@@ -1,0 +1,129 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/tasks/:taskId"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+    taskId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "taskId": "9cd478ac-10bb-8b90-3bc9-db489e6138b6",
+        "workspaceId": "c40be1ba-f36b-8bb8-259c-d4766deb33e6",
+        "runId": "ec6943c6-1ba9-23f5-67db-a12891ddb758",
+        "parentTaskId": "8f43a6fe-5b2c-1d27-ddba-79c5a2b0e433",
+        "department": "REQUIREMENTS",
+        "specialistProfile": "string",
+        "alias": "string",
+        "objectiveReference": "string",
+        "status": "UPDATE_PENDING",
+        "revision": 4761,
+        "priority": 9492,
+        "deadlineAt": "1962-01-18T21:19:01.035Z",
+        "currentAttemptNumber": 4448,
+        "lastHeartbeatAt": "1997-12-23T23:55:21.711Z",
+        "phase": "string",
+        "activity": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentTaskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "REQUIREMENTS",
+              "RESEARCH",
+              "DEAL_DESIGN",
+              "VERIFICATION"
+            ]
+          },
+          "specialistProfile": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string"
+          },
+          "objectiveReference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "DISPATCHED",
+              "RUNNING",
+              "WAITING_FOR_TOOL",
+              "WAITING_FOR_USER",
+              "UPDATE_PENDING",
+              "RETRY_WAIT",
+              "WAITING_FOR_CAPACITY",
+              "CANCELLING",
+              "CANCELLED",
+              "COMPLETED",
+              "COMPLETED_REUSED",
+              "FAILED",
+              "TIMED_OUT"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "deadlineAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentAttemptNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastHeartbeatAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "activity": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

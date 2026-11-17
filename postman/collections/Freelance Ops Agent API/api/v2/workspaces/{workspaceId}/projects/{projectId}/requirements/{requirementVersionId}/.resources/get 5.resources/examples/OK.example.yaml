@@ -1,0 +1,142 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/requirements/:requirementVersionId"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+    requirementVersionId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "d2d27e39-1f9d-7369-74b8-198968fb5d16",
+        "workspaceId": "d29d8af6-e230-c45a-1c5a-45fbac8c7232",
+        "projectId": "1753726c-ebe6-0d6b-d279-4fd9efb98ae5",
+        "versionNumber": 1192,
+        "sourceText": "string",
+        "features": [
+          {
+            "title": "string",
+            "description": "string",
+            "priority": "SHOULD",
+            "acceptanceCriteria": "string"
+          },
+          {
+            "title": "string",
+            "description": "string",
+            "priority": "MUST",
+            "acceptanceCriteria": "string"
+          }
+        ],
+        "assumptions": [
+          "string",
+          "string"
+        ],
+        "questions": [
+          {
+            "content": "string",
+            "status": "string"
+          },
+          {
+            "content": "string",
+            "status": "string"
+          }
+        ],
+        "createdBy": "58189d40-aaec-fb13-d1b8-13023b73dacc",
+        "createdAt": "1958-04-20T23:25:57.863Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sourceText": {
+            "type": "string"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "MUST",
+                    "SHOULD",
+                    "COULD",
+                    "WONT"
+                  ]
+                },
+                "acceptanceCriteria": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

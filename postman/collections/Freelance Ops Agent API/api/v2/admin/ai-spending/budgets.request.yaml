@@ -1,0 +1,51 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/ai-spending"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "accountWeekUsd": 58497.511912696296,
+      "expectedRevision": 8588248156097511000,
+      "globalDayUsd": 88234.54827124228,
+      "globalWeekUsd": 21724.636641629102
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "accountWeekUsd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "globalDayUsd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "globalWeekUsd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "expectedRevision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9223372036854776000
+        }
+      },
+      "required": [
+        "accountWeekUsd",
+        "expectedRevision",
+        "globalDayUsd",
+        "globalWeekUsd"
+      ]
+    }
+settings: {}
+examples: ./.resources/budgets.resources/examples
+order: 2000

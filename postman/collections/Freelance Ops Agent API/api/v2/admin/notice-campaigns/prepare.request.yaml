@@ -1,0 +1,29 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/notice-campaigns"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "noticeId": "9720dca0-37f7-4b7d-e348-5438d2a282b5"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "noticeId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "noticeId"
+      ]
+    }
+settings: {}
+examples: ./.resources/prepare.resources/examples
+order: 1000

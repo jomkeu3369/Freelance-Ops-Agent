@@ -1,0 +1,68 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/rate-card-folders"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "42de73e2-8a5a-8729-1c5a-af3d6995c1ca",
+          "workspaceId": "8435e1b2-0705-a435-5b84-d2a48d5b8f5a",
+          "parentId": "ca7bc4e7-409d-38f0-cc09-919c18942c7b",
+          "name": "string",
+          "version": 5570
+        },
+        {
+          "id": "e71b0b6d-24be-c739-199f-a34664f29558",
+          "workspaceId": "d8759580-0837-aace-5f2f-bad03807fea1",
+          "parentId": "bb82bffc-6140-24ac-19a8-f03d4945be83",
+          "name": "string",
+          "version": 1627
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "parentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      }
+order: 1000

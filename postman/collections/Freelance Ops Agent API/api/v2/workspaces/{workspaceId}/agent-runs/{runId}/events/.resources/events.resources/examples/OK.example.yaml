@@ -1,0 +1,46 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/events"
+  method: GET
+  headers:
+    - key: Last-Event-ID
+      value: "5630"
+      disabled: false
+      description: ""
+    - key: traceparent
+      value: string
+      disabled: false
+      description: ""
+    - key: Accept
+      value: text/event-stream
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: text/event-stream
+  body:
+    type: text
+    content: |-
+      {
+        "timeout": 9543
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

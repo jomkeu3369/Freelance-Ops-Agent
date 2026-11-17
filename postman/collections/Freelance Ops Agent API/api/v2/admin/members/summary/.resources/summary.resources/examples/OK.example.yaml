@@ -1,0 +1,60 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/members/summary"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "totalMembers": 6569,
+        "activeMembers": 1126,
+        "pendingVerification": 5989,
+        "joinedLast7Days": 5111,
+        "signedInLast7Days": 6490,
+        "recordingStartedAt": "2019-04-20T16:33:48.137Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "totalMembers": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "activeMembers": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pendingVerification": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "joinedLast7Days": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signedInLast7Days": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recordingStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

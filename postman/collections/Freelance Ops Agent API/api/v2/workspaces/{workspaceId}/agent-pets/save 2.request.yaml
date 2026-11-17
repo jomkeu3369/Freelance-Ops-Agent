@@ -1,0 +1,75 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "description": "string",
+      "id": "1a486291-4c8c-c9e8-fd25-5a2b9c3c4eea",
+      "mutationId": "7ef1c073-6556-50b7-3c80-a9d1d85a34fc",
+      "expectedRevision": 6780,
+      "resetPreferences": true,
+      "generationId": "5aff4ea5-dc13-c45f-a181-d2e3c0b9ce51"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mutationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "format": "int64"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "resetPreferences": {
+          "type": "boolean"
+        },
+        "generationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "description",
+        "id",
+        "mutationId"
+      ]
+    }
+settings: {}
+examples: ./.resources/save 2.resources/examples
+order: 2000

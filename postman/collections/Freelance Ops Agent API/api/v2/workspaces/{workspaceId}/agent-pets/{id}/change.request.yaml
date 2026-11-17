@@ -1,0 +1,69 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets/:id"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: id
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "action": "RESTORE",
+      "expectedRevision": 107
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "pattern": "SELECT|ARCHIVE|RESTORE"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "format": "int64"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+settings: {}
+examples: ./.resources/change.resources/examples
+order: 2000

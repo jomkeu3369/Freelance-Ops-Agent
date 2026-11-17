@@ -1,0 +1,43 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/member-audit-events?page=0&size=25"
+method: GET
+headers:
+  Accept: "*/*"
+queryParams:
+  - key: page
+    value: "0"
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
+      }
+  - key: size
+    value: "25"
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "format": "int32",
+            "default": 25
+          }
+        }
+      }
+body:
+  type: text
+  content: ""
+settings: {}
+examples: ./.resources/audits.resources/examples
+order: 1000

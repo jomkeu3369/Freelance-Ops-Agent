@@ -1,0 +1,41 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/free-usage/reset"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "confirmation": "string",
+      "expectedEpoch": 501,
+      "expectedUpdatedAt": "2002-09-14T19:59:51.175Z"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "confirmation": {
+          "type": "string"
+        },
+        "expectedEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "format": "int64"
+        },
+        "expectedUpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "confirmation",
+        "expectedEpoch",
+        "expectedUpdatedAt"
+      ]
+    }
+settings: {}
+examples: ./.resources/reset.resources/examples
+order: 1000

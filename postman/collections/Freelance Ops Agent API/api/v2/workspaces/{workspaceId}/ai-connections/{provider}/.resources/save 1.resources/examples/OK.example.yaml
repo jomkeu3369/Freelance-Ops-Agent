@@ -1,0 +1,65 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/ai-connections/:provider"
+  method: PUT
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    provider: OPENAI
+  body:
+    type: json
+    content: |-
+      {
+        "apiKey": "stringstringstring",
+        "model": "string"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "f6bc9dfd-d061-a3a5-8ccf-3687be9b4552",
+        "provider": "OPENAI",
+        "model": "string",
+        "maskedKey": "string",
+        "updatedAt": "1962-05-20T05:34:13.417Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "GEMINI"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "maskedKey": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

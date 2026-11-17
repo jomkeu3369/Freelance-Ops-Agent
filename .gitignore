@@ -86,3 +86,8 @@ infra/**/*.secret
 
 # 공개 데모에서 제외한 원본 영상의 로컬 사본
 docs/assets/readme/product-walkthrough-1080p60.mp4
+
+
+# postman 환경 설정과 개인 컬렉션
+.postman/
+postman/**/*local*

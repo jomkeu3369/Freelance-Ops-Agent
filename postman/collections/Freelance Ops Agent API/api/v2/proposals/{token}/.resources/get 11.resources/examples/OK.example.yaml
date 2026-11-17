@@ -1,0 +1,214 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/proposals/:token"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    token: string
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "quotationId": "f28b303f-f4e3-f0b6-9a8b-aa6cd73f3bf2",
+        "projectId": "6782c3cb-d280-c245-2be6-1e759c1c6349",
+        "projectTitle": "string",
+        "versionNumber": 278,
+        "scenario": "LEAN",
+        "currency": "string",
+        "subtotal": 9589.963341094865,
+        "discountTotal": 7888.177002407574,
+        "riskBufferAmount": 4229.318218148239,
+        "taxAmount": 2396.395687790135,
+        "total": 1231.9706223827043,
+        "validUntil": "2023-07-10",
+        "publishedAt": "1964-06-13T01:07:14.727Z",
+        "shareExpiresAt": "1993-01-05T05:46:55.696Z",
+        "items": [
+          {
+            "title": "string",
+            "description": "string",
+            "quantity": 1911.1101647923413,
+            "unit": "DAY",
+            "unitRate": 2768.21571295511,
+            "subtotal": 8882.92683043728,
+            "discountRate": 7124.944743165803,
+            "discountAmount": 5288.676917796392,
+            "total": 4379.434548313799,
+            "basis": {
+              "type": "ASSUMPTION",
+              "content": "string",
+              "sourceType": "POLICY",
+              "sourceReference": "string",
+              "sourceTitle": "string",
+              "retrievedAt": "1985-06-01T08:03:47.718Z"
+            }
+          },
+          {
+            "title": "string",
+            "description": "string",
+            "quantity": 9686.558357857708,
+            "unit": "FIXED",
+            "unitRate": 9455.470440247054,
+            "subtotal": 9207.135886807448,
+            "discountRate": 7348.812355423829,
+            "discountAmount": 9945.887359441731,
+            "total": 3170.04646249612,
+            "basis": {
+              "type": "ASSUMPTION",
+              "content": "string",
+              "sourceType": "PLATFORM_TERMS",
+              "sourceReference": "string",
+              "sourceTitle": "string",
+              "retrievedAt": "2022-09-02T11:37:42.981Z"
+            }
+          }
+        ]
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "quotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectTitle": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "LEAN",
+              "RECOMMENDED",
+              "EXPANDED"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "subtotal": {
+            "type": "number"
+          },
+          "discountTotal": {
+            "type": "number"
+          },
+          "riskBufferAmount": {
+            "type": "number"
+          },
+          "taxAmount": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shareExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "HOUR",
+                    "DAY",
+                    "FIXED"
+                  ]
+                },
+                "unitRate": {
+                  "type": "number"
+                },
+                "subtotal": {
+                  "type": "number"
+                },
+                "discountRate": {
+                  "type": "number"
+                },
+                "discountAmount": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "basis": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ASSUMPTION",
+                        "EVIDENCE"
+                      ]
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "sourceType": {
+                      "type": "string",
+                      "enum": [
+                        "PAST_PROJECT",
+                        "POLICY",
+                        "PLATFORM_TERMS",
+                        "USER_TEMPLATE",
+                        "EXTERNAL_SOURCE"
+                      ]
+                    },
+                    "sourceReference": {
+                      "type": "string"
+                    },
+                    "sourceTitle": {
+                      "type": "string"
+                    },
+                    "retrievedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

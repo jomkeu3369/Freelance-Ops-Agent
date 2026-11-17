@@ -1,0 +1,280 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/pet-generations"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "description": "string",
+        "modelSelection": {
+          "model": "string",
+          "provider": "OPENAI",
+          "reasoningEffort": "LOW",
+          "credentialId": "b59dcda3-cc50-150f-4b0f-90b8478efa9b"
+        },
+        "slot": "LEAN"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "runId": "6b1225c4-9f78-dc63-3291-eec70b0ed8d4",
+        "profile": {
+          "accessory": "none",
+          "animal": "pixel",
+          "color": "rose",
+          "deliveryPriority": "QUALITY",
+          "duty": "DEVELOPMENT",
+          "name": "}}-_",
+          "preferences": {
+            "communication": "string",
+            "focus": "string",
+            "personality": "stri",
+            "requests": [
+              "string",
+              "string",
+              "string",
+              "string",
+              "string",
+              "string"
+            ],
+            "responsibility": "string"
+          },
+          "scopePriority": "BALANCED",
+          "skillMode": "AUTO",
+          "slot": "EXPANDED",
+          "tone": "WARM",
+          "valuePriority": "RELATIONSHIP",
+          "petId": "8206300f-1d5c-e0bb-68e7-299cc37bee7c",
+          "sprite": {
+            "palette": [
+              "#c77CF3",
+              "#BDE59E",
+              "#d7E763",
+              "#9e15F6",
+              "#60C2Da",
+              "#0f2094",
+              "#73132e",
+              "#c7bfE7",
+              "#Fb81E3",
+              "#eA31B6",
+              "#E27F29",
+              "#4cD0C6",
+              "#CE42AD",
+              "#1aAe7F",
+              "#753B7A"
+            ],
+            "rows": [
+              "60B130083403024B549B1.BB.DDA0308",
+              "BBA13CDAB54D97781671909020167D24",
+              "616B3.4B644C1C31530920B8C9BC.33E",
+              "3.6C.CD.9.9900BC0E788C9E883DA2E7",
+              "AC43D915.D66E671E8A20088A47B20.4",
+              ".72D801BE.8.36AC28.31EAD32.23D09",
+              "A.12526983B98B02824C984D2A5C21BD",
+              "A00275554B6B0.D15C88E269E5DA008D",
+              "BB057212.D1343561BC9834E55DA9DA3",
+              "69.3DB.E73A1B29CB0D4B1231.71D862",
+              "2BB8B84CD603DC7EA264B025B02A075C",
+              "916B90A3D991EEA38041164E843.8055",
+              "41245A6BDB5C7AEA4A3AC.90D03B7C79",
+              "13A5.CB775116341D4109800C9B17D19",
+              "61888874ECC4D197115A1972A481BA1C",
+              "E7D430.C76D5EE21C7DAAB08E.ACD76B",
+              "25..8C2.3C.B05109A989258A6606A13",
+              "6E9088825A82877E759577238.8601CA",
+              "8BC966.6017CC6C4858C729A5CD64027",
+              "25A259875A2.0.53D79C9DB63A8.28B1"
+            ],
+            "species": "string"
+          }
+        },
+        "provider": "GEMINI",
+        "model": "string",
+        "inputTokens": 4353,
+        "outputTokens": 6669
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "pattern": "LEAN|RECOMMENDED|EXPANDED"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 20,
+                "pattern": "[\\p{L}\\p{N} _-]+"
+              },
+              "animal": {
+                "type": "string",
+                "pattern": "turtle|owl|cat|pixel"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "sage|lavender|peach|sky|rose|ink"
+              },
+              "accessory": {
+                "type": "string",
+                "pattern": "none|glasses|scarf|star"
+              },
+              "tone": {
+                "type": "string",
+                "pattern": "WARM|DIRECT|FORMAL"
+              },
+              "valuePriority": {
+                "type": "string",
+                "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+              },
+              "deliveryPriority": {
+                "type": "string",
+                "pattern": "SPEED|BALANCED|QUALITY"
+              },
+              "scopePriority": {
+                "type": "string",
+                "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+              },
+              "petId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "duty": {
+                "type": "string",
+                "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+              },
+              "skillMode": {
+                "type": "string",
+                "pattern": "AUTO"
+              },
+              "preferences": {
+                "type": "object",
+                "properties": {
+                  "personality": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "communication": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "focus": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "responsibility": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "requests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "communication",
+                  "focus",
+                  "personality",
+                  "requests",
+                  "responsibility"
+                ]
+              },
+              "sprite": {
+                "type": "object",
+                "properties": {
+                  "species": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 32
+                  },
+                  "palette": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "#[0-9a-fA-F]{6}"
+                    }
+                  },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "[.0-9A-E]{32}"
+                    }
+                  }
+                },
+                "required": [
+                  "palette",
+                  "rows",
+                  "species"
+                ]
+              }
+            },
+            "required": [
+              "accessory",
+              "animal",
+              "color",
+              "deliveryPriority",
+              "duty",
+              "name",
+              "preferences",
+              "scopePriority",
+              "skillMode",
+              "slot",
+              "tone",
+              "valuePriority"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "GEMINI"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

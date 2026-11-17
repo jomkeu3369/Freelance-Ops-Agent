@@ -1,0 +1,41 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/notice-campaigns/:id/dispatch-next"
+  method: POST
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    id: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "status": "string",
+        "processed": 320
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "processed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+order: 1000

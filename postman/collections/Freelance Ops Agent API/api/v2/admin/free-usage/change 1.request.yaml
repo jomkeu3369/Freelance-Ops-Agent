@@ -1,0 +1,43 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/free-usage"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "expectedEpoch": 4688,
+      "expectedUpdatedAt": "1962-04-08T16:54:17.889Z",
+      "limit": 31197.33062537542
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "expectedEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "format": "int64"
+        },
+        "expectedUpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "expectedEpoch",
+        "expectedUpdatedAt",
+        "limit"
+      ]
+    }
+settings: {}
+examples: ./.resources/change 1.resources/examples
+order: 3000

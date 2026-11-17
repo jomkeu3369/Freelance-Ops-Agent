@@ -1,0 +1,57 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/notices"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "body": "string",
+      "effectiveAt": "1957-09-19T13:52:50.713Z",
+      "kind": "string",
+      "title": "strin",
+      "versionLabel": "strin"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 24
+        },
+        "title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "body": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 20000
+        },
+        "versionLabel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "effectiveAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "body",
+        "effectiveAt",
+        "kind",
+        "title",
+        "versionLabel"
+      ]
+    }
+settings: {}
+examples: ./.resources/create 6.resources/examples
+order: 2000

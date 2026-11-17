@@ -1,0 +1,340 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/documents"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "9716a70e-f03d-1d2d-0131-1f028c2962f5",
+          "workspaceId": "8188bad6-f5fc-2361-a32d-e40aac6db742",
+          "sourceType": "PLATFORM_TERMS",
+          "title": "string",
+          "sourceUri": "string",
+          "sourceVersion": "string",
+          "jurisdiction": "string",
+          "effectiveFrom": "2011-03-07",
+          "effectiveUntil": "1978-08-30",
+          "contentSha256": "string",
+          "status": "string",
+          "chunks": [
+            {
+              "id": "a77886da-4d8e-6476-24b3-b98f6b77cb3a",
+              "chunkIndex": 9837,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 7801,
+              "endOffset": 5712
+            },
+            {
+              "id": "f1dbb08d-65d4-ec57-9d20-4658b258d628",
+              "chunkIndex": 8931,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 9129,
+              "endOffset": 5292
+            }
+          ],
+          "createdBy": "8802ade2-eeed-8522-b953-36b17109a9a2",
+          "createdAt": "1996-03-05T19:53:11.574Z",
+          "version": 1290,
+          "origin": "string",
+          "memoryType": "string",
+          "confirmationStatus": "string",
+          "retrievalEligible": true,
+          "projectId": "1defbe2c-334d-3f55-59f0-d0960a0dd7a6",
+          "sourceRunId": "bc8bccf8-3943-11d4-251f-cea97d05e492",
+          "sourceMessageIds": [
+            "32e61689-aaec-ecc5-df5e-c24d96c6f6a9",
+            "28f61cf3-a9c0-484c-7db7-230ab09d5d2f"
+          ],
+          "parentDocumentIds": [
+            "20b75f19-5de4-ff7a-fc78-216da1e855b8",
+            "5a2d6de0-71fb-b20b-ef5b-99407a95afcc"
+          ],
+          "supersedes": "da8b2714-275b-f49f-463a-ce889dd62e8d",
+          "revisionNumber": 1475,
+          "confirmedBy": "b0ca1890-8bda-47b6-01de-fa8d6d60640d",
+          "confirmedAt": "2000-11-10T15:51:59.162Z",
+          "sourceMessages": [
+            {
+              "id": "a81163e9-e3f1-a333-7c4c-feb292efa63b",
+              "eventOrder": 3745,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "2016-08-11T15:42:03.238Z"
+            },
+            {
+              "id": "0de91ff6-11da-cd83-38ae-6044a5fd8964",
+              "eventOrder": 6059,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "1998-06-27T16:14:39.891Z"
+            }
+          ]
+        },
+        {
+          "id": "ccd5021c-8dc4-16e8-6931-5760b78a2210",
+          "workspaceId": "d4620be8-abd3-8019-c699-2155173c7a19",
+          "sourceType": "PLATFORM_TERMS",
+          "title": "string",
+          "sourceUri": "string",
+          "sourceVersion": "string",
+          "jurisdiction": "string",
+          "effectiveFrom": "2024-08-08",
+          "effectiveUntil": "1965-02-15",
+          "contentSha256": "string",
+          "status": "string",
+          "chunks": [
+            {
+              "id": "f4dd2641-31e9-baeb-1a64-55f82e8e0bb6",
+              "chunkIndex": 9436,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 9971,
+              "endOffset": 9641
+            },
+            {
+              "id": "79fc30d6-14fc-7680-f638-73304888545e",
+              "chunkIndex": 1780,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 1390,
+              "endOffset": 3328
+            }
+          ],
+          "createdBy": "4b6dfa66-6bc1-81ea-8ad2-81c74c946943",
+          "createdAt": "1995-11-06T08:29:43.972Z",
+          "version": 75,
+          "origin": "string",
+          "memoryType": "string",
+          "confirmationStatus": "string",
+          "retrievalEligible": false,
+          "projectId": "297c0bcc-724d-753a-6a23-3342bedd8f56",
+          "sourceRunId": "9358709b-fb80-f690-00c0-622f85fef89b",
+          "sourceMessageIds": [
+            "0bb03394-ba20-c1e8-4e19-de93de5b8a4e",
+            "3470e789-045c-88e4-416a-3841840927a9"
+          ],
+          "parentDocumentIds": [
+            "56a9ff91-cb43-b9ed-eb90-c10d50afabea",
+            "4563e446-e5e5-a942-346c-39883c132810"
+          ],
+          "supersedes": "9cc63619-d76b-6bc5-cae2-1abf366c51f1",
+          "revisionNumber": 1545,
+          "confirmedBy": "80d7b565-9a54-35fb-4215-e64777b0e618",
+          "confirmedAt": "2026-01-12T23:56:25.867Z",
+          "sourceMessages": [
+            {
+              "id": "c6dad9db-43a1-ccc3-b45b-6faaf91f6f37",
+              "eventOrder": 9257,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "1957-03-07T22:50:02.410Z"
+            },
+            {
+              "id": "be2268a7-6d12-5f42-6391-993aa8610c80",
+              "eventOrder": 7493,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "1996-06-26T23:47:01.723Z"
+            }
+          ]
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sourceType": {
+              "type": "string",
+              "enum": [
+                "PAST_PROJECT",
+                "POLICY",
+                "PLATFORM_TERMS",
+                "USER_TEMPLATE",
+                "EXTERNAL_SOURCE"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "sourceUri": {
+              "type": "string"
+            },
+            "sourceVersion": {
+              "type": "string"
+            },
+            "jurisdiction": {
+              "type": "string"
+            },
+            "effectiveFrom": {
+              "type": "string",
+              "format": "date"
+            },
+            "effectiveUntil": {
+              "type": "string",
+              "format": "date"
+            },
+            "contentSha256": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "chunks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "chunkIndex": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "embeddingModel": {
+                    "type": "string"
+                  },
+                  "startOffset": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "endOffset": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            },
+            "createdBy": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "version": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "memoryType": {
+              "type": "string"
+            },
+            "confirmationStatus": {
+              "type": "string"
+            },
+            "retrievalEligible": {
+              "type": "boolean"
+            },
+            "projectId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sourceRunId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sourceMessageIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "parentDocumentIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "supersedes": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "revisionNumber": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "confirmedBy": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "confirmedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "sourceMessages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "eventOrder": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

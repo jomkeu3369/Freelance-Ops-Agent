@@ -1,0 +1,164 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/estimation-policy/proposals"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "proposalId": "8f293f79-307a-6751-7c06-0fe0d8f6e562",
+          "workspaceId": "e64261a8-e450-50a5-304a-6e987ad03edd",
+          "projectId": "00cada41-cc03-799c-a058-51cf6967b60c",
+          "sourceMessage": "string",
+          "status": "string",
+          "before": {
+            "workspaceId": "ce2abe82-8c14-0d8d-12e0-f221f62ee4fe",
+            "defaultTaxRate": 5955.2951572671045,
+            "defaultRiskBufferRate": 8610.172635923624,
+            "maximumDiscountRate": 8000.565460793344,
+            "version": 9500
+          },
+          "after": {
+            "workspaceId": "4f31ff4e-2281-159a-63dd-bac186639e5d",
+            "defaultTaxRate": 9797.065079738302,
+            "defaultRiskBufferRate": 1169.353690276642,
+            "maximumDiscountRate": 4547.486665848312,
+            "version": 8609
+          },
+          "confirmationToken": "7e387fec-a4b0-1756-15ea-d966ca181f6d",
+          "createdAt": "2018-09-27T04:31:34.201Z",
+          "expiresAt": "1994-02-25T12:35:08.055Z",
+          "appliedAt": "1966-06-05T16:53:22.204Z"
+        },
+        {
+          "proposalId": "985b5432-1df7-3b54-4b19-769681dcc77a",
+          "workspaceId": "a666b908-b7ca-531e-0c5c-4d92d004d248",
+          "projectId": "33afce94-da8b-836c-9c80-2d789614e706",
+          "sourceMessage": "string",
+          "status": "string",
+          "before": {
+            "workspaceId": "ee08e814-bafb-9eee-22e2-cd12da468a4d",
+            "defaultTaxRate": 2954.1053820855377,
+            "defaultRiskBufferRate": 4780.40173257606,
+            "maximumDiscountRate": 7906.695654646593,
+            "version": 3994
+          },
+          "after": {
+            "workspaceId": "042b8145-8efe-3c7e-9aa4-245045d2c4a0",
+            "defaultTaxRate": 8791.815585804394,
+            "defaultRiskBufferRate": 3438.4342585187433,
+            "maximumDiscountRate": 8742.577152542792,
+            "version": 7795
+          },
+          "confirmationToken": "0413101b-bacd-4c9f-66cb-4556d39fc7b4",
+          "createdAt": "1959-02-03T18:04:46.288Z",
+          "expiresAt": "2017-09-01T01:26:53.089Z",
+          "appliedAt": "2004-11-06T03:58:26.993Z"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "projectId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sourceMessage": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "before": {
+              "type": "object",
+              "properties": {
+                "workspaceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "defaultTaxRate": {
+                  "type": "number"
+                },
+                "defaultRiskBufferRate": {
+                  "type": "number"
+                },
+                "maximumDiscountRate": {
+                  "type": "number"
+                },
+                "version": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            },
+            "after": {
+              "type": "object",
+              "properties": {
+                "workspaceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "defaultTaxRate": {
+                  "type": "number"
+                },
+                "defaultRiskBufferRate": {
+                  "type": "number"
+                },
+                "maximumDiscountRate": {
+                  "type": "number"
+                },
+                "version": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            },
+            "confirmationToken": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "appliedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+order: 1000

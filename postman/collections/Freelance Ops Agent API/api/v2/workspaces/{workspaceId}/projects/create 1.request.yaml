@@ -1,0 +1,82 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "currency": "EBM",
+      "requirementText": "string",
+      "title": "string",
+      "clientId": "81c31b58-e894-44f1-8da5-97b71264dbb8",
+      "deadline": "1967-01-23",
+      "budgetMin": 5526.444057173726,
+      "budgetMax": 4667.100074240674
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "requirementText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{3}$"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date"
+        },
+        "budgetMin": {
+          "type": "number",
+          "minimum": 0
+        },
+        "budgetMax": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "currency",
+        "requirementText",
+        "title"
+      ]
+    }
+settings: {}
+examples: ./.resources/create 1.resources/examples
+order: 3000

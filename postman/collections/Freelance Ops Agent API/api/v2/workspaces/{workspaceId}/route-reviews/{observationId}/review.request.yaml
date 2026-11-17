@@ -1,0 +1,80 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/:observationId"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: observationId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "correctionSource": "HUMAN_REVIEW",
+      "goldRoute": "HUMAN_REQUIRED"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "goldRoute": {
+          "type": "string",
+          "enum": [
+            "DIRECT_TOOL",
+            "SIMPLE_LLM",
+            "REACT_AGENT",
+            "SUPERVISOR",
+            "HUMAN_REQUIRED"
+          ]
+        },
+        "correctionSource": {
+          "type": "string",
+          "enum": [
+            "HUMAN_REVIEW",
+            "USER_EDIT",
+            "POLICY_REPLAY"
+          ]
+        }
+      },
+      "required": [
+        "correctionSource",
+        "goldRoute"
+      ]
+    }
+settings: {}
+examples: ./.resources/review.resources/examples
+order: 1000

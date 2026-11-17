@@ -1,0 +1,166 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/attachments?encoding=auto&delimiter=auto&ocrLanguage=mixed&ocrLayout=general"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: multipart/form-data
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    encoding: auto
+    delimiter: auto
+    ocrLanguage: mixed
+    ocrLayout: general
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: formdata
+    content:
+      - type: file
+        key: file
+        src: ""
+        description: ""
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "b65e8a6e-77be-cfbe-0e35-5ade79e18cc7",
+        "expiresAt": "1992-08-15T22:09:08.139Z",
+        "extraction": {
+          "name": "string",
+          "mediaType": "string",
+          "size": 9186,
+          "sha256": "string",
+          "status": "string",
+          "text": "string",
+          "notice": "string",
+          "encoding": "string",
+          "delimiter": "string",
+          "units": 9005,
+          "ocrLanguage": "string",
+          "ocrLayout": "string",
+          "coverage": [
+            {
+              "index": 8671,
+              "kind": "string",
+              "nativeStatus": "string",
+              "rasterStatus": "string",
+              "ocrAttempted": false,
+              "ocrCompleted": true,
+              "ocrStatus": "string",
+              "reason": "string"
+            },
+            {
+              "index": 1495,
+              "kind": "string",
+              "nativeStatus": "string",
+              "rasterStatus": "string",
+              "ocrAttempted": false,
+              "ocrCompleted": true,
+              "ocrStatus": "string",
+              "reason": "string"
+            }
+          ]
+        }
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "extraction": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "mediaType": {
+                "type": "string"
+              },
+              "size": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "sha256": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "notice": {
+                "type": "string"
+              },
+              "encoding": {
+                "type": "string"
+              },
+              "delimiter": {
+                "type": "string"
+              },
+              "units": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "ocrLanguage": {
+                "type": "string"
+              },
+              "ocrLayout": {
+                "type": "string"
+              },
+              "coverage": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "nativeStatus": {
+                      "type": "string"
+                    },
+                    "rasterStatus": {
+                      "type": "string"
+                    },
+                    "ocrAttempted": {
+                      "type": "boolean"
+                    },
+                    "ocrCompleted": {
+                      "type": "boolean"
+                    },
+                    "ocrStatus": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

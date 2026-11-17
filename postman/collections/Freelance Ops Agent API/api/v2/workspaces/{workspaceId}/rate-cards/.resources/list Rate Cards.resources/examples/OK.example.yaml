@@ -1,0 +1,98 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/rate-cards"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "c5f40e20-cedc-19ce-39ce-432a5e284530",
+          "workspaceId": "e1a07c13-7578-70ab-9019-bc0eb2b6c33d",
+          "name": "string",
+          "unit": "DAY",
+          "rate": 3352.7313821766825,
+          "minimumAmount": 6672.364300525882,
+          "currency": "string",
+          "active": true,
+          "version": 6185,
+          "folderId": "f526b201-b0f3-93a0-5c05-1af3d0c50f2b"
+        },
+        {
+          "id": "7a94e457-d6dd-fae9-18a1-17122cd9540a",
+          "workspaceId": "5b2bde1b-5e70-a26d-aee0-fc6296a66824",
+          "name": "string",
+          "unit": "HOUR",
+          "rate": 3681.8986407643783,
+          "minimumAmount": 2803.5228787457213,
+          "currency": "string",
+          "active": false,
+          "version": 2812,
+          "folderId": "07c645f9-a9b1-1611-d3d4-34f19d0c8bd3"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "HOUR",
+                "DAY",
+                "FIXED"
+              ]
+            },
+            "rate": {
+              "type": "number"
+            },
+            "minimumAmount": {
+              "type": "number"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "active": {
+              "type": "boolean"
+            },
+            "version": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "folderId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+order: 1000

@@ -1,0 +1,55 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/:observationId/adjudication"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    observationId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "observationId": "51334ca2-254a-3518-9670-8dc31c1024ec",
+        "priorVotes": [
+          "SUPERVISOR",
+          "SUPERVISOR"
+        ]
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "observationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "priorVotes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "DIRECT_TOOL",
+                "SIMPLE_LLM",
+                "REACT_AGENT",
+                "SUPERVISOR",
+                "HUMAN_REQUIRED"
+              ]
+            }
+          }
+        }
+      }
+order: 1000

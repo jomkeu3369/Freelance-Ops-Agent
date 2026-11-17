@@ -1,0 +1,160 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/free-usage/reset"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: json
+    content: |-
+      {
+        "confirmation": "string",
+        "expectedEpoch": 501,
+        "expectedUpdatedAt": "2002-09-14T19:59:51.175Z"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "petMode": true,
+        "debateEnabled": true,
+        "participantPetIds": [
+          "1be1f9f8-7802-a6f5-c60d-0ab35d8bf563",
+          "8c757166-b05e-a26b-b3f6-cea00e83f128"
+        ],
+        "acceptedDraft": {
+          "scenario": "string",
+          "items": [
+            {
+              "title": "string",
+              "description": "string",
+              "quantity": 7194.000878981222,
+              "unit": "string",
+              "rateCardHint": "string",
+              "basis": {
+                "type": "string",
+                "content": "string",
+                "sourceReference": "string",
+                "sourceTitle": "string"
+              }
+            },
+            {
+              "title": "string",
+              "description": "string",
+              "quantity": 5023.76294715561,
+              "unit": "string",
+              "rateCardHint": "string",
+              "basis": {
+                "type": "string",
+                "content": "string",
+                "sourceReference": "string",
+                "sourceTitle": "string"
+              }
+            }
+          ],
+          "petPerspective": {
+            "proposal": "string",
+            "rationale": "string",
+            "tradeoff": "string"
+          }
+        },
+        "draftSourceRunId": "7dbb6a3b-5279-3789-72ae-496382f29440"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "petMode": {
+            "type": "boolean"
+          },
+          "debateEnabled": {
+            "type": "boolean"
+          },
+          "participantPetIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "acceptedDraft": {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "number",
+                      "format": "double"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "rateCardHint": {
+                      "type": "string"
+                    },
+                    "basis": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "sourceReference": {
+                          "type": "string"
+                        },
+                        "sourceTitle": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "petPerspective": {
+                "type": "object",
+                "properties": {
+                  "proposal": {
+                    "type": "string"
+                  },
+                  "rationale": {
+                    "type": "string"
+                  },
+                  "tradeoff": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "draftSourceRunId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+order: 1000

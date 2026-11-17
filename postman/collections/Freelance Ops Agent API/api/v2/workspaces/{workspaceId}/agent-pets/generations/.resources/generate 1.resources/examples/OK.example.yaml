@@ -1,0 +1,265 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets/generations"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "description": "string",
+        "modelSelection": {
+          "model": "string",
+          "provider": "OPENAI",
+          "reasoningEffort": "LOW",
+          "credentialId": "b59dcda3-cc50-150f-4b0f-90b8478efa9b"
+        },
+        "slot": "LEAN"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "01ab7b65-abf3-73f4-36b5-6c55a3e78630",
+        "status": "string",
+        "profile": {
+          "accessory": "star",
+          "animal": "pixel",
+          "color": "sage",
+          "deliveryPriority": "BALANCED",
+          "duty": "DEVELOPMENT",
+          "name": "{}-}",
+          "preferences": {
+            "communication": "string",
+            "focus": "string",
+            "personality": "",
+            "requests": [
+              "string",
+              "string",
+              "string",
+              "string",
+              "string",
+              "string"
+            ],
+            "responsibility": "string"
+          },
+          "scopePriority": "BALANCED",
+          "skillMode": "AUTO",
+          "slot": "RECOMMENDED",
+          "tone": "FORMAL",
+          "valuePriority": "BALANCED",
+          "petId": "c83caa09-743d-ee66-d697-2bbd6e4febc9",
+          "sprite": {
+            "palette": [
+              "#D3BCb9",
+              "#55504d",
+              "#BcdDE6",
+              "#DcdE9c",
+              "#CaD4D4",
+              "#Ade5FF",
+              "#CFF4Ef",
+              "#A92323",
+              "#2C8cfD",
+              "#6CB956",
+              "#0f62Ea",
+              "#4EF5f3",
+              "#Ae83f7",
+              "#b57686",
+              "#8F8d53"
+            ],
+            "rows": [
+              "354431E.AA8C1B1..89.B01DD3BA07C4",
+              "10B41D7E5218D40DD74E42740ED4447A",
+              "48667C23.90C62686452A1..033E.A60",
+              "2A32.270D6A99.99D390460D0B9A3345",
+              "83CE6509432181B6C5CE715B1..87A36",
+              "1C.DCCBB97049560DB87916825395BB5",
+              "663C3.8810AE.C99EC4EE75B23B809B6",
+              "91C1BCBB393E4.113D311C49BA37545C",
+              "129CAB266B447EA0E326482BD.98D119",
+              "C2BE4014BB6.9EA96ECC39ECE008829.",
+              "CC4582265738802A32DDE13EAD7DE8.E",
+              "32630E1AC0279297D1CD75CE69C14D48",
+              "232356D683BCE68.97AA71828788B8A6",
+              "9C4ED22D8418EE59.C3ACA123956CD4C",
+              "BC.D946644A.A863C73EADBED4D9469A",
+              "0E5241A2B3084E609932C82516141B2E",
+              "A08BB.4DEA85E9EC4B6A1123A44E2097",
+              "BC6A16C098E1136E82027485BE.34A11",
+              "4D9.73.74..CC4691B58382D234B3115",
+              "53622D0B426D06D21EA60720.DE36925"
+            ],
+            "species": "string"
+          }
+        },
+        "errorCode": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "pattern": "LEAN|RECOMMENDED|EXPANDED"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 20,
+                "pattern": "[\\p{L}\\p{N} _-]+"
+              },
+              "animal": {
+                "type": "string",
+                "pattern": "turtle|owl|cat|pixel"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "sage|lavender|peach|sky|rose|ink"
+              },
+              "accessory": {
+                "type": "string",
+                "pattern": "none|glasses|scarf|star"
+              },
+              "tone": {
+                "type": "string",
+                "pattern": "WARM|DIRECT|FORMAL"
+              },
+              "valuePriority": {
+                "type": "string",
+                "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+              },
+              "deliveryPriority": {
+                "type": "string",
+                "pattern": "SPEED|BALANCED|QUALITY"
+              },
+              "scopePriority": {
+                "type": "string",
+                "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+              },
+              "petId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "duty": {
+                "type": "string",
+                "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+              },
+              "skillMode": {
+                "type": "string",
+                "pattern": "AUTO"
+              },
+              "preferences": {
+                "type": "object",
+                "properties": {
+                  "personality": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "communication": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "focus": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "responsibility": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "requests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "communication",
+                  "focus",
+                  "personality",
+                  "requests",
+                  "responsibility"
+                ]
+              },
+              "sprite": {
+                "type": "object",
+                "properties": {
+                  "species": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 32
+                  },
+                  "palette": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "#[0-9a-fA-F]{6}"
+                    }
+                  },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "[.0-9A-E]{32}"
+                    }
+                  }
+                },
+                "required": [
+                  "palette",
+                  "rows",
+                  "species"
+                ]
+              }
+            },
+            "required": [
+              "accessory",
+              "animal",
+              "color",
+              "deliveryPriority",
+              "duty",
+              "name",
+              "preferences",
+              "scopePriority",
+              "skillMode",
+              "slot",
+              "tone",
+              "valuePriority"
+            ]
+          },
+          "errorCode": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

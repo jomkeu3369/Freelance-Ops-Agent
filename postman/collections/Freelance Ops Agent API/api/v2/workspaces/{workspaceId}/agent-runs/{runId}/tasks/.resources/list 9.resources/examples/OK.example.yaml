@@ -1,0 +1,151 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/tasks"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "taskId": "31c0c772-6752-0d09-a175-2f0c0f450a55",
+          "workspaceId": "36096db6-0b91-a8ab-fc37-d8eb30321c1f",
+          "runId": "1347740b-83bf-2ed1-9bc8-ea837d1c2da2",
+          "parentTaskId": "50d07910-56c7-2b58-a78b-cf38b8c78bd4",
+          "department": "VERIFICATION",
+          "specialistProfile": "string",
+          "alias": "string",
+          "objectiveReference": "string",
+          "status": "WAITING_FOR_TOOL",
+          "revision": 2564,
+          "priority": 5487,
+          "deadlineAt": "1980-03-02T02:35:24.452Z",
+          "currentAttemptNumber": 3129,
+          "lastHeartbeatAt": "2000-09-02T16:34:40.951Z",
+          "phase": "string",
+          "activity": "string"
+        },
+        {
+          "taskId": "56412d2d-6086-05b9-29ad-19ccac4935e5",
+          "workspaceId": "e68d9e7c-9721-0c23-6919-c562b453c812",
+          "runId": "33b8fb11-9e2a-94bb-250b-32f8b5c9c2f8",
+          "parentTaskId": "863eb254-2f8c-87b0-43c3-f2c362f318df",
+          "department": "VERIFICATION",
+          "specialistProfile": "string",
+          "alias": "string",
+          "objectiveReference": "string",
+          "status": "CANCELLING",
+          "revision": 1603,
+          "priority": 6045,
+          "deadlineAt": "2011-08-24T14:57:32.746Z",
+          "currentAttemptNumber": 6325,
+          "lastHeartbeatAt": "1997-01-13T05:51:50.930Z",
+          "phase": "string",
+          "activity": "string"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "taskId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "runId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "parentTaskId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "department": {
+              "type": "string",
+              "enum": [
+                "REQUIREMENTS",
+                "RESEARCH",
+                "DEAL_DESIGN",
+                "VERIFICATION"
+              ]
+            },
+            "specialistProfile": {
+              "type": "string"
+            },
+            "alias": {
+              "type": "string"
+            },
+            "objectiveReference": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "QUEUED",
+                "DISPATCHED",
+                "RUNNING",
+                "WAITING_FOR_TOOL",
+                "WAITING_FOR_USER",
+                "UPDATE_PENDING",
+                "RETRY_WAIT",
+                "WAITING_FOR_CAPACITY",
+                "CANCELLING",
+                "CANCELLED",
+                "COMPLETED",
+                "COMPLETED_REUSED",
+                "FAILED",
+                "TIMED_OUT"
+              ]
+            },
+            "revision": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "priority": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "deadlineAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "currentAttemptNumber": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "lastHeartbeatAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "phase": {
+              "type": "string"
+            },
+            "activity": {
+              "type": "string"
+            }
+          }
+        }
+      }
+order: 1000

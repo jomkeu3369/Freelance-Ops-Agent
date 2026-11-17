@@ -1,0 +1,183 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/requirements"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "a9b72dd7-6ad2-a4cb-63d5-9655acfc6034",
+          "workspaceId": "0538673d-4bd3-9eeb-5ced-55f12c84ba9a",
+          "projectId": "0a020f9e-49b5-0c6b-0913-910d3b0e6bdb",
+          "versionNumber": 6324,
+          "sourceText": "string",
+          "features": [
+            {
+              "title": "string",
+              "description": "string",
+              "priority": "COULD",
+              "acceptanceCriteria": "string"
+            },
+            {
+              "title": "string",
+              "description": "string",
+              "priority": "WONT",
+              "acceptanceCriteria": "string"
+            }
+          ],
+          "assumptions": [
+            "string",
+            "string"
+          ],
+          "questions": [
+            {
+              "content": "string",
+              "status": "string"
+            },
+            {
+              "content": "string",
+              "status": "string"
+            }
+          ],
+          "createdBy": "4e16016e-40fc-1eaf-197f-8d508500b569",
+          "createdAt": "1949-01-14T10:47:32.078Z"
+        },
+        {
+          "id": "f6f4825e-165b-236b-c201-172d24129677",
+          "workspaceId": "a007cad8-ca82-68da-da72-c5a7ddbdb3e4",
+          "projectId": "6a6bcc60-1785-b581-32f2-fdfc4d1c5f97",
+          "versionNumber": 874,
+          "sourceText": "string",
+          "features": [
+            {
+              "title": "string",
+              "description": "string",
+              "priority": "SHOULD",
+              "acceptanceCriteria": "string"
+            },
+            {
+              "title": "string",
+              "description": "string",
+              "priority": "MUST",
+              "acceptanceCriteria": "string"
+            }
+          ],
+          "assumptions": [
+            "string",
+            "string"
+          ],
+          "questions": [
+            {
+              "content": "string",
+              "status": "string"
+            },
+            {
+              "content": "string",
+              "status": "string"
+            }
+          ],
+          "createdBy": "2f4a875c-0709-b2ae-9976-56c7c710521d",
+          "createdAt": "1987-08-08T21:47:01.399Z"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "workspaceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "projectId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "versionNumber": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "sourceText": {
+              "type": "string"
+            },
+            "features": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "MUST",
+                      "SHOULD",
+                      "COULD",
+                      "WONT"
+                    ]
+                  },
+                  "acceptanceCriteria": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "questions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "createdBy": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+order: 1000

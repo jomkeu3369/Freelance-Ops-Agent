@@ -1,0 +1,279 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/outcome"
+  method: PUT
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "actualCost": 7932.414790259349,
+        "actualHours": 508.49032259262515,
+        "totalRevenue": 1071.6988153735995,
+        "workItems": [
+          {
+            "actualCost": 200.01992839299265,
+            "actualHours": 131.3428706521791,
+            "title": "string",
+            "quotationItemId": "a21dcb71-694e-90d7-b018-773816448a9f",
+            "notes": "string"
+          },
+          {
+            "actualCost": 479.4872572344533,
+            "actualHours": 6285.331017897177,
+            "title": "strin",
+            "quotationItemId": "10a28b9c-0aa9-41bf-6613-7db53223a4fc",
+            "notes": "string"
+          },
+          {
+            "actualCost": 3175.3169453540186,
+            "actualHours": 8001.278659635789,
+            "title": "string",
+            "quotationItemId": "59648c17-2735-d52b-b037-ed8fec0ed536",
+            "notes": "string"
+          },
+          {
+            "actualCost": 1802.892469044136,
+            "actualHours": 3442.196883542983,
+            "title": "string",
+            "quotationItemId": "928badcf-9d94-831c-330d-879d45bcda95",
+            "notes": "string"
+          },
+          {
+            "actualCost": 8883.216375668246,
+            "actualHours": 9898.112015136641,
+            "title": "string",
+            "quotationItemId": "ba7a5838-10b2-f0e5-45a5-8c55300dc06f",
+            "notes": "string"
+          },
+          {
+            "actualCost": 8365.718213349614,
+            "actualHours": 3364.2611719261417,
+            "title": "string",
+            "quotationItemId": "f18d00cf-9fa6-7c10-1dd6-6851cc002efb",
+            "notes": "string"
+          },
+          {
+            "actualCost": 4047.802379666522,
+            "actualHours": 5296.07393195275,
+            "title": "string",
+            "quotationItemId": "67941032-1e6f-b6fa-7295-7fc97faaaff8",
+            "notes": "string"
+          },
+          {
+            "actualCost": 6466.43839728347,
+            "actualHours": 7686.784275584146,
+            "title": "string",
+            "quotationItemId": "d5151959-e671-6ef2-4402-bf6e3eff2159",
+            "notes": "string"
+          },
+          {
+            "actualCost": 7152.079696154414,
+            "actualHours": 613.2495947956795,
+            "title": "string",
+            "quotationItemId": "27bfbecc-2b3c-9ff6-b0a1-f5a4fe0f7a95",
+            "notes": "string"
+          },
+          {
+            "actualCost": 3640.8288535278452,
+            "actualHours": 5373.344501529959,
+            "title": "string",
+            "quotationItemId": "5aaec3fa-ca0c-c748-8f98-3333cac02bc7",
+            "notes": "stri"
+          },
+          {
+            "actualCost": 6012.740283001838,
+            "actualHours": 3411.221273164464,
+            "title": "string",
+            "quotationItemId": "20d40653-bdc5-2d20-0904-5a770d846865",
+            "notes": "string"
+          },
+          {
+            "actualCost": 290.84817411713317,
+            "actualHours": 1621.4643743374602,
+            "title": "string",
+            "quotationItemId": "3428f10a-2969-ec5d-a1c8-cbcae6b4a986",
+            "notes": "string"
+          },
+          {
+            "actualCost": 3105.533272986355,
+            "actualHours": 5624.847771920326,
+            "title": "string",
+            "quotationItemId": "23959c48-153d-9929-48b8-538a7e0de5bd",
+            "notes": "string"
+          },
+          {
+            "actualCost": 6468.932513936203,
+            "actualHours": 6377.309831618316,
+            "title": "string",
+            "quotationItemId": "34aac247-9e8b-0040-9ba5-eeb9eac80d74",
+            "notes": "string"
+          },
+          {
+            "actualCost": 2102.956517126955,
+            "actualHours": 2777.21842595249,
+            "title": "string",
+            "quotationItemId": "55c1a1fa-19b8-916f-75b2-49df38a4fe4a",
+            "notes": "string"
+          },
+          {
+            "actualCost": 4614.807456645232,
+            "actualHours": 5270.699932428352,
+            "title": "string",
+            "quotationItemId": "21cbab8a-3dd7-c289-bf60-a1326b74d6ed",
+            "notes": "string"
+          },
+          {
+            "actualCost": 7516.044806151983,
+            "actualHours": 7917.079752679681,
+            "title": "string",
+            "quotationItemId": "b57deea0-4baf-8dc9-ddf7-a0bbdfb717d9",
+            "notes": "string"
+          },
+          {
+            "actualCost": 5857.82653430558,
+            "actualHours": 5772.665712990436,
+            "title": "string",
+            "quotationItemId": "2eac999d-0b72-ca01-128b-0765a3b0e5f6",
+            "notes": "string"
+          },
+          {
+            "actualCost": 165.87730418038515,
+            "actualHours": 3118.4517077614805,
+            "title": "string",
+            "quotationItemId": "9da3da27-08d7-763d-ca9f-07e1b768ea49",
+            "notes": "string"
+          },
+          {
+            "actualCost": 2930.349731125491,
+            "actualHours": 3355.0312111907456,
+            "title": "string",
+            "quotationItemId": "f2febebc-02b9-32e2-aea7-7a2f611ad4be",
+            "notes": "string"
+          }
+        ],
+        "approvedQuotationId": "d00b6ef7-c9e7-bcef-706b-055b71c1acce",
+        "completedOn": "2014-04-29",
+        "changeReason": "string"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "7f840265-a2d2-2c23-8cb7-66c915acc54e",
+        "workspaceId": "5a7af723-bc39-b829-598c-52fc51c86432",
+        "projectId": "bb468d0f-977c-8986-b67a-e81b92e51a88",
+        "approvedQuotationId": "ec48c3e3-c076-2464-6fe3-3ad47d59a3b3",
+        "totalRevenue": 3830.120960027538,
+        "actualCost": 7055.403057518488,
+        "actualHours": 2351.7319185173037,
+        "profitAmount": 6254.114717119719,
+        "profitMargin": 9341.735555000541,
+        "completedOn": "1956-12-23",
+        "changeReason": "string",
+        "workItems": [
+          {
+            "quotationItemId": "78c31de7-8051-9d78-cd83-6e50175ce733",
+            "title": "string",
+            "actualHours": 2231.7428058035903,
+            "actualCost": 5375.023301645541,
+            "notes": "string"
+          },
+          {
+            "quotationItemId": "f39bbe95-3c41-7720-ef6e-9912d8ce1b5f",
+            "title": "string",
+            "actualHours": 8922.748969321228,
+            "actualCost": 9971.112064063878,
+            "notes": "string"
+          }
+        ],
+        "version": 4388
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approvedQuotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalRevenue": {
+            "type": "number"
+          },
+          "actualCost": {
+            "type": "number"
+          },
+          "actualHours": {
+            "type": "number"
+          },
+          "profitAmount": {
+            "type": "number"
+          },
+          "profitMargin": {
+            "type": "number"
+          },
+          "completedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "workItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quotationItemId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "actualHours": {
+                  "type": "number"
+                },
+                "actualCost": {
+                  "type": "number"
+                },
+                "notes": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

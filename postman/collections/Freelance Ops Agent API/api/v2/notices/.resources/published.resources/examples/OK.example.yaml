@@ -1,0 +1,91 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/notices"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "9e33dd55-3b73-e8f9-b162-a30abc189566",
+          "kind": "string",
+          "title": "string",
+          "body": "string",
+          "versionLabel": "string",
+          "effectiveAt": "2026-06-20T08:15:07.663Z",
+          "publishAt": "2015-08-07T21:05:59.898Z",
+          "status": "string",
+          "contentHash": "string",
+          "revision": 9733
+        },
+        {
+          "id": "5c5a030a-435f-0a8a-7e50-b1e7ff4b8a06",
+          "kind": "string",
+          "title": "string",
+          "body": "string",
+          "versionLabel": "string",
+          "effectiveAt": "2012-02-08T12:02:57.443Z",
+          "publishAt": "2025-05-26T23:47:49.140Z",
+          "status": "string",
+          "contentHash": "string",
+          "revision": 8350
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "versionLabel": {
+              "type": "string"
+            },
+            "effectiveAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "publishAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "status": {
+              "type": "string"
+            },
+            "contentHash": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      }
+order: 1000

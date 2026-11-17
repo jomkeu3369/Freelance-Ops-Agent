@@ -1,0 +1,266 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/documents/:documentId"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    documentId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "493501c6-035e-3914-33d7-76d8e2003029",
+        "workspaceId": "39c8394c-2dcc-a61d-dbb3-c16e05998c2c",
+        "sourceType": "USER_TEMPLATE",
+        "title": "string",
+        "sourceUri": "string",
+        "sourceVersion": "string",
+        "jurisdiction": "string",
+        "effectiveFrom": "1972-12-02",
+        "effectiveUntil": "2005-07-05",
+        "contentSha256": "string",
+        "status": "string",
+        "chunks": [
+          {
+            "id": "bb9a278c-76fc-6810-4167-7d0b897b5391",
+            "chunkIndex": 9804,
+            "content": "string",
+            "embeddingModel": "string",
+            "startOffset": 9403,
+            "endOffset": 2680
+          },
+          {
+            "id": "2cd07666-181c-cb2d-7155-0f41b476d2d4",
+            "chunkIndex": 4263,
+            "content": "string",
+            "embeddingModel": "string",
+            "startOffset": 1888,
+            "endOffset": 7351
+          }
+        ],
+        "createdBy": "6f26e481-7732-0ed5-6594-9b8769fce4b3",
+        "createdAt": "1969-01-26T10:08:47.087Z",
+        "version": 6460,
+        "origin": "string",
+        "memoryType": "string",
+        "confirmationStatus": "string",
+        "retrievalEligible": true,
+        "projectId": "74cba8d0-4a17-4451-3c5d-3e96f590a88e",
+        "sourceRunId": "62b14ea7-c4c8-eda6-46f6-d0261ce9bce3",
+        "sourceMessageIds": [
+          "92604950-d500-971c-82a2-26b9f77c2481",
+          "8c4f69f1-a477-31f5-23d1-0b04c4a64026"
+        ],
+        "parentDocumentIds": [
+          "d158eba2-55c7-da02-7745-b51a44c351a4",
+          "21762ecf-502c-2963-de95-122f444ccfc9"
+        ],
+        "supersedes": "a9e31849-f3a4-c37d-f5c3-f7ef24259326",
+        "revisionNumber": 4563,
+        "confirmedBy": "e9716d3d-df74-d37f-852e-17a77e4b0991",
+        "confirmedAt": "2012-04-22T10:01:38.110Z",
+        "sourceMessages": [
+          {
+            "id": "9120bd0a-802f-543f-5715-97354cfada14",
+            "eventOrder": 4281,
+            "kind": "string",
+            "content": "string",
+            "prompt": "string",
+            "createdAt": "1966-08-07T12:17:46.935Z"
+          },
+          {
+            "id": "a2dffc31-944f-9946-a3f5-94ee45d725f0",
+            "eventOrder": 5705,
+            "kind": "string",
+            "content": "string",
+            "prompt": "string",
+            "createdAt": "1978-01-09T15:39:27.697Z"
+          }
+        ]
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "PAST_PROJECT",
+              "POLICY",
+              "PLATFORM_TERMS",
+              "USER_TEMPLATE",
+              "EXTERNAL_SOURCE"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "sourceUri": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "string"
+          },
+          "jurisdiction": {
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveUntil": {
+            "type": "string",
+            "format": "date"
+          },
+          "contentSha256": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "chunkIndex": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "embeddingModel": {
+                  "type": "string"
+                },
+                "startOffset": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "endOffset": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "memoryType": {
+            "type": "string"
+          },
+          "confirmationStatus": {
+            "type": "string"
+          },
+          "retrievalEligible": {
+            "type": "boolean"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceMessageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "parentDocumentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "supersedes": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revisionNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceMessages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "eventOrder": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

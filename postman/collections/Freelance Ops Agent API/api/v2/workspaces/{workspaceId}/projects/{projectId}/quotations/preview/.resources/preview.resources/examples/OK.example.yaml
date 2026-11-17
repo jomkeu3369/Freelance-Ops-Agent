@@ -1,0 +1,118 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/quotations/preview"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "currency": "FER",
+        "items": [
+          {
+            "basis": {
+              "content": "string",
+              "type": "EVIDENCE",
+              "sourceType": "PLATFORM_TERMS",
+              "sourceReference": "string",
+              "sourceTitle": "string",
+              "retrievedAt": "1985-11-01T15:52:32.089Z"
+            },
+            "discountRate": 0.13804722041579975,
+            "quantity": 213.8607462402664,
+            "title": "string",
+            "rateCardId": "97a6d0ea-ce95-dc5b-4ac4-27ebcf94843a",
+            "description": "string",
+            "unit": "HOUR",
+            "unitRate": 5958.615916467768
+          }
+        ],
+        "scenario": "LEAN",
+        "taxRate": 0.35202966917306,
+        "applyDefaultRiskBuffer": false,
+        "validUntil": "1992-04-10"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "items": [
+          {
+            "subtotal": 2940.8062296315484,
+            "discountAmount": 4747.902535162294,
+            "total": 9586.64375853038
+          },
+          {
+            "subtotal": 9914.799301903484,
+            "discountAmount": 1066.6660941015182,
+            "total": 2581.94834952315
+          }
+        ],
+        "subtotal": 170.90636588846908,
+        "discountTotal": 5930.331622302208,
+        "riskBufferRate": 1703.2853298287287,
+        "riskBufferAmount": 4644.881232255246,
+        "taxRate": 7709.5143375763855,
+        "taxAmount": 2880.1682563071085,
+        "total": 9216.414187811008
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subtotal": {
+                  "type": "number"
+                },
+                "discountAmount": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "subtotal": {
+            "type": "number"
+          },
+          "discountTotal": {
+            "type": "number"
+          },
+          "riskBufferRate": {
+            "type": "number"
+          },
+          "riskBufferAmount": {
+            "type": "number"
+          },
+          "taxRate": {
+            "type": "number"
+          },
+          "taxAmount": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+order: 1000

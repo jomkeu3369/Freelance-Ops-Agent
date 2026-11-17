@@ -1,0 +1,374 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "pets": [
+          {
+            "id": "0e25f72d-a77f-49b6-1d90-ebb701b23af5",
+            "profile": {
+              "accessory": "glasses",
+              "animal": "pixel",
+              "color": "ink",
+              "deliveryPriority": "SPEED",
+              "duty": "DESIGN",
+              "name": "_NLp",
+              "preferences": {
+                "communication": "string",
+                "focus": "string",
+                "personality": "string",
+                "requests": [
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string"
+                ],
+                "responsibility": "string"
+              },
+              "scopePriority": "CAUTIOUS",
+              "skillMode": "AUTO",
+              "slot": "EXPANDED",
+              "tone": "WARM",
+              "valuePriority": "BALANCED",
+              "petId": "5af800e5-c1a6-fa0c-ea7c-9312604fdbb0",
+              "sprite": {
+                "palette": [
+                  "#ccA0d5",
+                  "#3481f1",
+                  "#b3EDC3",
+                  "#31f980",
+                  "#EC2FaC",
+                  "#CffFe8",
+                  "#5beae7",
+                  "#9E0F7C",
+                  "#f9f0fA",
+                  "#b7aA46",
+                  "#12ccCD",
+                  "#4D3b65",
+                  "#b7eDFb",
+                  "#0BA7D5",
+                  "#4AFe4E"
+                ],
+                "rows": [
+                  ".348622.85518BBCE734370C6092BEAA",
+                  "EC9D4.0815783166C4EDE9775.A1.9DB",
+                  "7D1C4A4.B950716D197DA48E3DE02.0.",
+                  "38.A485C.17D78537BC5060.0B94D9A.",
+                  ".7912E65BB6077AB79C0.AA9EE5B518.",
+                  "AE6.2EA9E9DBA504EC3042CD42A8ADEB",
+                  "C4A5D9BD63947949C74B6.C2CBBD7C61",
+                  "34E368A19766E2054E6.284C9.5E3.5E",
+                  "50C53A580D1E882CA71BC9.5A.E9BD9E",
+                  "281DA37A30165313B26.3B6AD0DC230D",
+                  "5B83155D57DC79AD2785A4CE1.8.8B67",
+                  "5402269712113D1805CC7E6CAD3.3B38",
+                  "83D57387A05BEC39..EC2E4B9590D4CD",
+                  "A5B32C52C..84E5959851B1C3CE220A7",
+                  "B787E2EA6D50872CEC6EC91C0D809747",
+                  "76B757908A491B7805A0B3.890.5.B1.",
+                  "0.7656863845D2A.BDC6CC536EA7C677",
+                  "85006.0A0ABEDE753.A86139179D4A4C",
+                  "8C367331BD2.4.D2856D5A.1BBE81D3.",
+                  "0C4047E28.94E106A.D13D1ACA5C69.2"
+                ],
+                "species": "string"
+              }
+            },
+            "archived": false,
+            "revision": 6351
+          },
+          {
+            "id": "8154ff4e-8cdb-1913-16af-2215517c7df5",
+            "profile": {
+              "accessory": "scarf",
+              "animal": "owl",
+              "color": "rose",
+              "deliveryPriority": "QUALITY",
+              "duty": "DESIGN",
+              "name": "}Np-N}-L",
+              "preferences": {
+                "communication": "string",
+                "focus": "string",
+                "personality": "string",
+                "requests": [
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string"
+                ],
+                "responsibility": "string"
+              },
+              "scopePriority": "EXPLORATORY",
+              "skillMode": "AUTO",
+              "slot": "RECOMMENDED",
+              "tone": "WARM",
+              "valuePriority": "RELATIONSHIP",
+              "petId": "39b7eada-488c-dc00-fb38-e45171a09069",
+              "sprite": {
+                "palette": [
+                  "#8C8564",
+                  "#c81e8E",
+                  "#aaBca7",
+                  "#EbbDfC",
+                  "#d0FB16",
+                  "#fCab03",
+                  "#4b74CC",
+                  "#3CF2C4",
+                  "#FDd3F1",
+                  "#aFa2b8",
+                  "#A658B6",
+                  "#D3FAF1",
+                  "#dE2ffd",
+                  "#3fFdFa",
+                  "#0c796E"
+                ],
+                "rows": [
+                  "4C1E89A0A80721.B852E5.9023649C30",
+                  "9E142B.8BB20155EA388586EB6D96A57",
+                  "8C2ECDE314A09327E..64A8.926..234",
+                  "5A0C.82936100B4933091E22.888EB45",
+                  "7549C50B3480005EAC581AA4C490999.",
+                  ".BC95837ED3E.B056255AC0E.AC769.1",
+                  "234E131437C9296CA335051304E36092",
+                  "31DD8291703D31D3ED6B733ABD50E.02",
+                  "A0A46..A41CB8517AA252E41C7167373",
+                  ".8709A9C9DD7C.C2E215D51979857896",
+                  "A.EA6A.1012C9D91BCDB25A634847087",
+                  "9802B78B3C1BD62E7DAE4681B2B6DBB2",
+                  "5351A9.E30E9D71DB76139B0C.42A69.",
+                  "D55.9BB6.4EE0987044.D84498EBE699",
+                  "4.709.8C42779.D7A956E9EA..CDABA0",
+                  "4445ADCA0DCD188A9.CCC1DE84B7B568",
+                  "1E3A53B86238463.6901B8EB8B147150",
+                  "533441B44DB9.3360B4D27A.5DE7DC.A",
+                  "8A23E6759E772E155A8179899A24231E",
+                  "64E1377210A71256D5C66452.CC5A9.D"
+                ],
+                "species": "st"
+              }
+            },
+            "archived": true,
+            "revision": 52
+          }
+        ],
+        "selectedPetId": "c6e0faee-5d3c-f882-928b-2648bee89b09",
+        "maxActivePets": 5932,
+        "maxStoredPets": 5585,
+        "maxPromptLength": 9955,
+        "maxPreferenceRequests": 6198,
+        "generationMode": "string",
+        "aiGenerationAvailable": true
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "pets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "profile": {
+                  "type": "object",
+                  "properties": {
+                    "slot": {
+                      "type": "string",
+                      "pattern": "LEAN|RECOMMENDED|EXPANDED"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 20,
+                      "pattern": "[\\p{L}\\p{N} _-]+"
+                    },
+                    "animal": {
+                      "type": "string",
+                      "pattern": "turtle|owl|cat|pixel"
+                    },
+                    "color": {
+                      "type": "string",
+                      "pattern": "sage|lavender|peach|sky|rose|ink"
+                    },
+                    "accessory": {
+                      "type": "string",
+                      "pattern": "none|glasses|scarf|star"
+                    },
+                    "tone": {
+                      "type": "string",
+                      "pattern": "WARM|DIRECT|FORMAL"
+                    },
+                    "valuePriority": {
+                      "type": "string",
+                      "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+                    },
+                    "deliveryPriority": {
+                      "type": "string",
+                      "pattern": "SPEED|BALANCED|QUALITY"
+                    },
+                    "scopePriority": {
+                      "type": "string",
+                      "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+                    },
+                    "petId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "duty": {
+                      "type": "string",
+                      "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+                    },
+                    "skillMode": {
+                      "type": "string",
+                      "pattern": "AUTO"
+                    },
+                    "preferences": {
+                      "type": "object",
+                      "properties": {
+                        "personality": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "communication": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "focus": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "responsibility": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "requests": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 500
+                          }
+                        }
+                      },
+                      "required": [
+                        "communication",
+                        "focus",
+                        "personality",
+                        "requests",
+                        "responsibility"
+                      ]
+                    },
+                    "sprite": {
+                      "type": "object",
+                      "properties": {
+                        "species": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 32
+                        },
+                        "palette": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "#[0-9a-fA-F]{6}"
+                          }
+                        },
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "[.0-9A-E]{32}"
+                          }
+                        }
+                      },
+                      "required": [
+                        "palette",
+                        "rows",
+                        "species"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accessory",
+                    "animal",
+                    "color",
+                    "deliveryPriority",
+                    "duty",
+                    "name",
+                    "preferences",
+                    "scopePriority",
+                    "skillMode",
+                    "slot",
+                    "tone",
+                    "valuePriority"
+                  ]
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "revision": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "selectedPetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "maxActivePets": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxStoredPets": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxPromptLength": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxPreferenceRequests": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "generationMode": {
+            "type": "string"
+          },
+          "aiGenerationAvailable": {
+            "type": "boolean"
+          }
+        }
+      }
+order: 1000
