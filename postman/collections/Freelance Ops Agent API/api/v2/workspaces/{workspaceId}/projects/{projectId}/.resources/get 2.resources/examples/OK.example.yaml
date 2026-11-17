@@ -1,0 +1,107 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "5e0bbb55-276f-aedc-966d-0052e9a2baf8",
+        "workspaceId": "63f1adfd-5a89-9cc0-45c5-49d9019b725d",
+        "clientId": "9d2be43f-7c0a-d0de-94ff-0df0ee7b5e48",
+        "title": "string",
+        "requirementText": "string",
+        "currency": "string",
+        "deadline": "2014-05-13",
+        "budgetMin": 5761.147893450843,
+        "budgetMax": 8703.542484087284,
+        "status": "QUALIFYING",
+        "createdBy": "b61d907b-3807-a945-c794-7e209f24fd28",
+        "createdAt": "1960-09-29T02:20:24.135Z",
+        "updatedAt": "1984-10-11T00:11:06.755Z",
+        "version": 1022
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "requirementText": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date"
+          },
+          "budgetMin": {
+            "type": "number"
+          },
+          "budgetMax": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "LEAD",
+              "QUALIFYING",
+              "QUOTING",
+              "NEGOTIATING",
+              "ACCEPTED",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

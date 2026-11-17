@@ -1,0 +1,126 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/members/:id/ai-usage"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    id: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "limit": 3538,
+        "used": 8602,
+        "reserved": 1918,
+        "remaining": 5247,
+        "resetAt": "2010-02-22T02:19:34.131Z",
+        "period": "string",
+        "timezone": "string",
+        "epoch": 1318,
+        "canManage": false,
+        "unit": "string",
+        "periodType": "string",
+        "modelRates": [
+          {
+            "provider": "OPENAI",
+            "model": "string",
+            "credits": 1714,
+            "enabled": false
+          },
+          {
+            "provider": "GEMINI",
+            "model": "string",
+            "credits": 5909,
+            "enabled": true
+          }
+        ],
+        "pricingUpdatedAt": "1981-06-21T06:21:45.430Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "used": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reserved": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resetAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "periodType": {
+            "type": "string"
+          },
+          "modelRates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "OPENAI",
+                    "GEMINI"
+                  ]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "credits": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "pricingUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

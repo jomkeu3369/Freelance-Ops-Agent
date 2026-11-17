@@ -1,0 +1,70 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "ageAtLeast14": true,
+      "displayName": "jomkeu",
+      "email": "jomkeu@example.com",
+      "password": "Password123!",
+      "workspaceName": "workspaceTest"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 320,
+          "format": "email"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 72
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "workspaceName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "ageAtLeast14": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ageAtLeast14",
+        "displayName",
+        "email",
+        "password",
+        "workspaceName"
+      ]
+    }
+auth:
+  type: noauth
+scripts:
+  - type: beforeRequest
+    code: ""
+    language: text/javascript
+  - type: afterResponse
+    code: "const res = pm.response.json();\r
+
+      if (res.accessToken) pm.collectionVariables.set(\"bearerToken\", res.accessToken);\r
+
+      if (res.workspaceId) pm.collectionVariables.set(\"workspaceId\", res.workspaceId);"
+    language: text/javascript
+settings: {}
+examples: ./.resources/register.resources/examples
+order: 1000

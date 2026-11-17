@@ -1,0 +1,64 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/rate-cards/:rateCardId/folder"
+method: PUT
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: rateCardId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "folderId": "46cdea5a-d1c9-ecf7-6d44-179297411f41"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "folderId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "folderId"
+      ]
+    }
+settings: {}
+examples: ./.resources/move Rate Card.resources/examples
+order: 1000

@@ -1,0 +1,204 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/quotations/preview"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "currency": "FER",
+      "items": [
+        {
+          "basis": {
+            "content": "string",
+            "type": "EVIDENCE",
+            "sourceType": "PLATFORM_TERMS",
+            "sourceReference": "string",
+            "sourceTitle": "string",
+            "retrievedAt": "1985-11-01T15:52:32.089Z"
+          },
+          "discountRate": 0.13804722041579975,
+          "quantity": 213.8607462402664,
+          "title": "string",
+          "rateCardId": "97a6d0ea-ce95-dc5b-4ac4-27ebcf94843a",
+          "description": "string",
+          "unit": "HOUR",
+          "unitRate": 5958.615916467768
+        }
+      ],
+      "scenario": "LEAN",
+      "taxRate": 0.35202966917306,
+      "applyDefaultRiskBuffer": false,
+      "validUntil": "1992-04-10"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "scenario": {
+          "type": "string",
+          "enum": [
+            "LEAN",
+            "RECOMMENDED",
+            "EXPANDED"
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{3}$"
+        },
+        "taxRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "applyDefaultRiskBuffer": {
+          "type": "boolean"
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rateCardId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 5000
+              },
+              "quantity": {
+                "type": "number",
+                "minimum": 0
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "HOUR",
+                  "DAY",
+                  "FIXED"
+                ]
+              },
+              "unitRate": {
+                "type": "number",
+                "minimum": 0
+              },
+              "discountRate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "basis": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "ASSUMPTION",
+                      "EVIDENCE"
+                    ]
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 3000
+                  },
+                  "sourceType": {
+                    "type": "string",
+                    "enum": [
+                      "PAST_PROJECT",
+                      "POLICY",
+                      "PLATFORM_TERMS",
+                      "USER_TEMPLATE",
+                      "EXTERNAL_SOURCE"
+                    ]
+                  },
+                  "sourceReference": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 1000
+                  },
+                  "sourceTitle": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 300
+                  },
+                  "retrievedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "content",
+                  "type"
+                ]
+              }
+            },
+            "required": [
+              "basis",
+              "discountRate",
+              "quantity",
+              "title"
+            ]
+          }
+        }
+      },
+      "required": [
+        "currency",
+        "items",
+        "scenario"
+      ]
+    }
+settings: {}
+examples: ./.resources/preview.resources/examples
+order: 1000

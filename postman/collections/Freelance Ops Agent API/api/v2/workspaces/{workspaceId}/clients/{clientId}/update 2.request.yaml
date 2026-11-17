@@ -1,0 +1,96 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/clients/:clientId"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: clientId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "expectedVersion": 7050,
+      "name": "string",
+      "companyName": "st",
+      "email": "KNzJ@Vh.tbv",
+      "phone": "string",
+      "notes": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "companyName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "email": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 320,
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 5000
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "expectedVersion",
+        "name"
+      ]
+    }
+settings: {}
+examples: ./.resources/update 2.resources/examples
+order: 3000

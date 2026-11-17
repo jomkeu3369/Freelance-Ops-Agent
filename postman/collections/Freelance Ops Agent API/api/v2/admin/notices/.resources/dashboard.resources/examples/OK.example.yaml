@@ -1,0 +1,189 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/notices"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "notices": [
+          {
+            "id": "b2779d19-aad1-ba2a-5eb5-90474e36f003",
+            "kind": "string",
+            "title": "string",
+            "body": "string",
+            "versionLabel": "string",
+            "effectiveAt": "1976-04-07T09:43:30.974Z",
+            "publishAt": "1963-07-20T09:35:17.201Z",
+            "status": "string",
+            "contentHash": "string",
+            "revision": 3347
+          },
+          {
+            "id": "e0bfe584-574e-0933-9d00-007c4fe4bd15",
+            "kind": "string",
+            "title": "string",
+            "body": "string",
+            "versionLabel": "string",
+            "effectiveAt": "1966-02-21T05:43:30.310Z",
+            "publishAt": "1967-06-09T13:39:34.666Z",
+            "status": "string",
+            "contentHash": "string",
+            "revision": 6938
+          }
+        ],
+        "campaigns": [
+          {
+            "id": "15bf7ddf-1762-a06a-b9ed-fb435fc49952",
+            "noticeId": "db1ba75a-9229-4e9b-ad86-5f5ebe69b9a2",
+            "snapshotTitle": "string",
+            "snapshotBody": "string",
+            "snapshotVersionLabel": "string",
+            "status": "string",
+            "contentHash": "string",
+            "recipientHash": "string",
+            "recipientCount": 3152,
+            "testStatus": "string",
+            "createdAt": "2004-08-30T19:21:41.916Z",
+            "deliveries": {
+              "key_0": 1908,
+              "key_1": 7645
+            }
+          },
+          {
+            "id": "6654cec9-c5ff-a139-7b45-242e844a565c",
+            "noticeId": "c13a21d7-3397-1576-1927-bf66f1cd6125",
+            "snapshotTitle": "string",
+            "snapshotBody": "string",
+            "snapshotVersionLabel": "string",
+            "status": "string",
+            "contentHash": "string",
+            "recipientHash": "string",
+            "recipientCount": 3231,
+            "testStatus": "string",
+            "createdAt": "2001-05-11T20:30:04.925Z",
+            "deliveries": {
+              "key_0": 1303
+            }
+          }
+        ],
+        "transportReady": false
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "notices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "versionLabel": {
+                  "type": "string"
+                },
+                "effectiveAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "publishAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "contentHash": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "campaigns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "noticeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "snapshotTitle": {
+                  "type": "string"
+                },
+                "snapshotBody": {
+                  "type": "string"
+                },
+                "snapshotVersionLabel": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "contentHash": {
+                  "type": "string"
+                },
+                "recipientHash": {
+                  "type": "string"
+                },
+                "recipientCount": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "testStatus": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "deliveries": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            }
+          },
+          "transportReady": {
+            "type": "boolean"
+          }
+        }
+      }
+order: 1000

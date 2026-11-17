@@ -1,0 +1,64 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/admin/free-usage/models"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "credits": 26931.660627496145,
+      "enabled": false,
+      "expectedEpoch": 350,
+      "expectedUpdatedAt": "1966-06-18T08:51:23.631Z",
+      "model": "string",
+      "provider": "GEMINI"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "OPENAI",
+            "GEMINI"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "credits": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "expectedEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "format": "int64"
+        },
+        "expectedUpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "credits",
+        "enabled",
+        "expectedEpoch",
+        "expectedUpdatedAt",
+        "model",
+        "provider"
+      ]
+    }
+settings: {}
+examples: ./.resources/change Model.resources/examples
+order: 1000

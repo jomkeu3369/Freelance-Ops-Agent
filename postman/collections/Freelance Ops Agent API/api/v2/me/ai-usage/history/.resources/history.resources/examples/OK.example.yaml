@@ -1,0 +1,213 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/me/ai-usage/history?cursor=string&limit=20"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    cursor: string
+    limit: "20"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "items": [
+          {
+            "runId": "2666b8c2-f05f-4302-dcbc-50f207b504f7",
+            "model": "string",
+            "status": "string",
+            "startedAt": "1965-06-13T15:40:34.417Z",
+            "platformCostUsd": 2047.1123750641473,
+            "platformReservedUsd": 5199.456992748842,
+            "usageKnown": false,
+            "byokInputTokens": 6060,
+            "byokOutputTokens": 2352,
+            "providerCalls": [
+              {
+                "callId": "905e13c3-0978-cbda-cdd4-b4a508f64a54",
+                "provider": "OPENAI",
+                "model": "string",
+                "operation": "string",
+                "inputTokens": 9645,
+                "outputTokens": 666,
+                "cachedReadTokens": 8810,
+                "cacheWriteTokens": 5828,
+                "costUsd": 5460.358843642319,
+                "reservedCostUsd": 813.6735499198455,
+                "usageKnown": false,
+                "fundingSource": "string"
+              },
+              {
+                "callId": "e5777434-2d45-717d-1e6a-3afa89e69a24",
+                "provider": "GEMINI",
+                "model": "string",
+                "operation": "string",
+                "inputTokens": 8673,
+                "outputTokens": 3251,
+                "cachedReadTokens": 1274,
+                "cacheWriteTokens": 6614,
+                "costUsd": 9393.214946666285,
+                "reservedCostUsd": 7948.004056032806,
+                "usageKnown": true,
+                "fundingSource": "string"
+              }
+            ]
+          },
+          {
+            "runId": "49d3f59b-36f4-8234-801f-a4ac5cab17a6",
+            "model": "string",
+            "status": "string",
+            "startedAt": "1969-05-18T11:14:11.825Z",
+            "platformCostUsd": 5669.72134861861,
+            "platformReservedUsd": 295.08593212505207,
+            "usageKnown": false,
+            "byokInputTokens": 2227,
+            "byokOutputTokens": 6663,
+            "providerCalls": [
+              {
+                "callId": "6a8aeade-0df3-f981-fbd6-dbafce544d2f",
+                "provider": "GEMINI",
+                "model": "string",
+                "operation": "string",
+                "inputTokens": 1653,
+                "outputTokens": 9226,
+                "cachedReadTokens": 790,
+                "cacheWriteTokens": 9347,
+                "costUsd": 749.1051717516306,
+                "reservedCostUsd": 8497.250991563542,
+                "usageKnown": true,
+                "fundingSource": "string"
+              },
+              {
+                "callId": "f18f8d9d-1ae1-0c25-f874-38c324f6437b",
+                "provider": "GEMINI",
+                "model": "string",
+                "operation": "string",
+                "inputTokens": 8699,
+                "outputTokens": 252,
+                "cachedReadTokens": 9719,
+                "cacheWriteTokens": 7628,
+                "costUsd": 7005.297742848674,
+                "reservedCostUsd": 375.14402525834936,
+                "usageKnown": true,
+                "fundingSource": "string"
+              }
+            ]
+          }
+        ],
+        "nextCursor": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "startedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "platformCostUsd": {
+                  "type": "number"
+                },
+                "platformReservedUsd": {
+                  "type": "number"
+                },
+                "usageKnown": {
+                  "type": "boolean"
+                },
+                "byokInputTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "byokOutputTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "providerCalls": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "callId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "enum": [
+                          "OPENAI",
+                          "GEMINI"
+                        ]
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "operation": {
+                        "type": "string"
+                      },
+                      "inputTokens": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "outputTokens": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "cachedReadTokens": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "cacheWriteTokens": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "costUsd": {
+                        "type": "number"
+                      },
+                      "reservedCostUsd": {
+                        "type": "number"
+                      },
+                      "usageKnown": {
+                        "type": "boolean"
+                      },
+                      "fundingSource": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

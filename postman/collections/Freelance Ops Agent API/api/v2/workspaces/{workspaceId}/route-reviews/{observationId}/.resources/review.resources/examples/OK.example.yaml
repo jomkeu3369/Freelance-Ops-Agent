@@ -1,0 +1,121 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/:observationId"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    observationId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "correctionSource": "HUMAN_REVIEW",
+        "goldRoute": "HUMAN_REQUIRED"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "5878e5f6-a413-5c42-a15b-839c15c3d3aa",
+        "runId": "1c06fdd2-4691-ef43-c100-d5ae427ecdb8",
+        "eventId": 5629,
+        "projectId": "4721df62-3bf1-2e56-1a57-0135b8138f20",
+        "occurredAt": "1991-04-28T05:23:04.023Z",
+        "routeData": {
+          "key_0": 5926.086444795381,
+          "key_1": 4830.76939604598
+        },
+        "goldRoute": "SUPERVISOR",
+        "correctionSource": "HUMAN_REVIEW",
+        "reviewedAt": "1948-02-15T03:54:25.779Z",
+        "claimExpiresAt": "1981-03-21T18:35:49.184Z",
+        "reviewTarget": 3429,
+        "reviewVotes": 102,
+        "reviewStatus": "ADJUDICATION"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "routeData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "goldRoute": {
+            "type": "string",
+            "enum": [
+              "DIRECT_TOOL",
+              "SIMPLE_LLM",
+              "REACT_AGENT",
+              "SUPERVISOR",
+              "HUMAN_REQUIRED"
+            ]
+          },
+          "correctionSource": {
+            "type": "string",
+            "enum": [
+              "HUMAN_REVIEW",
+              "USER_EDIT",
+              "POLICY_REPLAY"
+            ]
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "claimExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewTarget": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reviewVotes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reviewStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ADJUDICATION",
+              "COMPLETED"
+            ]
+          }
+        }
+      }
+order: 1000

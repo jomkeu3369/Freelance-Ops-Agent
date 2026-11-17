@@ -1,0 +1,113 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/members?q=&status=&page=0&size=25"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    q: ""
+    status: ""
+    page: "0"
+    size: "25"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "items": [
+          {
+            "id": "181ef2dd-f5b8-9f34-4a57-d79240f7cbc5",
+            "email": "string",
+            "displayName": "string",
+            "status": "string",
+            "emailVerificationRequired": true,
+            "emailVerifiedAt": "1988-07-26T14:45:23.464Z",
+            "joinedAt": "2004-05-02T08:56:29.310Z",
+            "lastLoginAt": "2023-09-13T08:31:13.867Z"
+          },
+          {
+            "id": "6735431f-6f67-bc06-be46-8a8faaf80ced",
+            "email": "string",
+            "displayName": "string",
+            "status": "string",
+            "emailVerificationRequired": false,
+            "emailVerifiedAt": "1963-12-20T05:42:26.464Z",
+            "joinedAt": "1965-01-24T12:11:43.491Z",
+            "lastLoginAt": "1999-04-27T01:12:12.043Z"
+          }
+        ],
+        "total": 8665,
+        "page": 7844,
+        "size": 2260,
+        "recordingStartedAt": "2014-01-20T19:09:49.629Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "emailVerificationRequired": {
+                  "type": "boolean"
+                },
+                "emailVerifiedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "joinedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "lastLoginAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordingStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

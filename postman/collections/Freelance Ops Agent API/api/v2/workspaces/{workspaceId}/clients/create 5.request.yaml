@@ -1,0 +1,72 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/clients"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: c959ea26-b4dd-4414-93ad-521f99d6f989
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "name": "고객사1",
+      "companyName": "고객사A",
+      "email": "customer1@test.com",
+      "phone": "010-1111-1111",
+      "notes": "학생들에게 게임 강의를 하는 고객사입니다."
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "companyName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "email": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 320,
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 5000
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+settings: {}
+examples: ./.resources/create 5.resources/examples
+order: 2000

@@ -1,0 +1,81 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/tasks/:taskId/instructions"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+    taskId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "idempotencyKey": "string",
+        "instruction": "string",
+        "expectedRevision": 1290
+      }
+response:
+  statusCode: 202
+  statusText: Accepted
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "commandId": "dd575cd8-f631-17ed-3936-d4a6c7fd8478",
+        "taskId": "4e3b9c68-b57a-63dc-05d4-0e75449137db",
+        "revision": 9900,
+        "status": "CANCELLING",
+        "acceptedAt": "1985-06-01T05:00:35.551Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "DISPATCHED",
+              "RUNNING",
+              "WAITING_FOR_TOOL",
+              "WAITING_FOR_USER",
+              "UPDATE_PENDING",
+              "RETRY_WAIT",
+              "WAITING_FOR_CAPACITY",
+              "CANCELLING",
+              "CANCELLED",
+              "COMPLETED",
+              "COMPLETED_REUSED",
+              "FAILED",
+              "TIMED_OUT"
+            ]
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

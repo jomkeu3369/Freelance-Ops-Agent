@@ -1,0 +1,75 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/ai-connections/:provider"
+method: PUT
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: provider
+    value: OPENAI
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "GEMINI"
+            ]
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "apiKey": "stringstringstring",
+      "model": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "apiKey": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "apiKey",
+        "model"
+      ]
+    }
+settings: {}
+examples: ./.resources/save 1.resources/examples
+order: 1000

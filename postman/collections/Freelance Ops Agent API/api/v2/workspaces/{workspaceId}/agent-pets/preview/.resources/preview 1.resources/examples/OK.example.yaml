@@ -1,0 +1,243 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets/preview"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "description": "string",
+        "id": "1a486291-4c8c-c9e8-fd25-5a2b9c3c4eea",
+        "mutationId": "7ef1c073-6556-50b7-3c80-a9d1d85a34fc",
+        "expectedRevision": 6780,
+        "resetPreferences": true,
+        "generationId": "5aff4ea5-dc13-c45f-a181-d2e3c0b9ce51"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "accessory": "scarf",
+        "animal": "owl",
+        "color": "rose",
+        "deliveryPriority": "SPEED",
+        "duty": "SCHEDULE",
+        "name": "}}pLLN{}N}",
+        "preferences": {
+          "communication": "string",
+          "focus": "string",
+          "personality": "string",
+          "requests": [
+            "string",
+            "string",
+            "string",
+            "string",
+            "string",
+            "string"
+          ],
+          "responsibility": "string"
+        },
+        "scopePriority": "EXPLORATORY",
+        "skillMode": "AUTO",
+        "slot": "RECOMMENDED",
+        "tone": "WARM",
+        "valuePriority": "PROFIT",
+        "petId": "0b926277-f7a8-2154-97bd-160f90dac659",
+        "sprite": {
+          "palette": [
+            "#2906d5",
+            "#e4961B",
+            "#f1cf9b",
+            "#2ABc3e",
+            "#FF5470",
+            "#F3dCBa",
+            "#C8f4DB",
+            "#0BA11a",
+            "#bEb02C",
+            "#7BCc6f",
+            "#d6fdea",
+            "#FBBe97",
+            "#16b57b",
+            "#A25DE6",
+            "#CAb9cc"
+          ],
+          "rows": [
+            "1D.D0840028D.746E.B7318B82E481B6",
+            "4EC2C904BB08AA907466A1B61D7E6D28",
+            "6D80EE77C5BB933009025ED7AA76AC36",
+            "ADED6.1.62.9744.CEEB8BD9E2E7CCDA",
+            "B8A5.20B66A7B.B33E85358E..8D2D1D",
+            "BCBB732482D021BB3A482540.736534B",
+            "4E4331.283E730.0D2B2504E5E10.9E6",
+            "E61693D422E343.80BA.E6C.7A55352.",
+            "9AD.3ADA3AA7A17BA4BE24463.60D897",
+            "6.5104.88B4ECE4E2A80CB0A024211BB",
+            "E5726DA668E3163E8CD7E9.E24.A3095",
+            "5E3.7.99.3.BAD9559C399ED92182422",
+            "8D.D89A5900.D04AB9D33C3.C218B34D",
+            "7E44E01A56563C38D198.8DCD1005748",
+            "16866C35884.D9711.AE21458985.147",
+            "E.8CC349D550E4CD76.C623234147900",
+            "B4A456E1A0D3.A61BC2E5516.507C9D6",
+            "80A379E5.23AC7DA401E.D59E2B2AA92",
+            "15.257E3C6C74B96B2515374352157A5",
+            "B1538DD4437A7105E362C55C6.665B15"
+          ],
+          "species": "string"
+        }
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "pattern": "LEAN|RECOMMENDED|EXPANDED"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 20,
+            "pattern": "[\\p{L}\\p{N} _-]+"
+          },
+          "animal": {
+            "type": "string",
+            "pattern": "turtle|owl|cat|pixel"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "sage|lavender|peach|sky|rose|ink"
+          },
+          "accessory": {
+            "type": "string",
+            "pattern": "none|glasses|scarf|star"
+          },
+          "tone": {
+            "type": "string",
+            "pattern": "WARM|DIRECT|FORMAL"
+          },
+          "valuePriority": {
+            "type": "string",
+            "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+          },
+          "deliveryPriority": {
+            "type": "string",
+            "pattern": "SPEED|BALANCED|QUALITY"
+          },
+          "scopePriority": {
+            "type": "string",
+            "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+          },
+          "petId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duty": {
+            "type": "string",
+            "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+          },
+          "skillMode": {
+            "type": "string",
+            "pattern": "AUTO"
+          },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "personality": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 500
+              },
+              "communication": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 500
+              },
+              "focus": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 500
+              },
+              "responsibility": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 500
+              },
+              "requests": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                }
+              }
+            },
+            "required": [
+              "communication",
+              "focus",
+              "personality",
+              "requests",
+              "responsibility"
+            ]
+          },
+          "sprite": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 32
+              },
+              "palette": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "#[0-9a-fA-F]{6}"
+                }
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "[.0-9A-E]{32}"
+                }
+              }
+            },
+            "required": [
+              "palette",
+              "rows",
+              "species"
+            ]
+          }
+        },
+        "required": [
+          "accessory",
+          "animal",
+          "color",
+          "deliveryPriority",
+          "duty",
+          "name",
+          "preferences",
+          "scopePriority",
+          "skillMode",
+          "slot",
+          "tone",
+          "valuePriority"
+        ]
+      }
+order: 1000

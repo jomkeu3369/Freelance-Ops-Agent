@@ -1,0 +1,282 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/documents/:documentId/confirm"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    documentId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "expectedVersion": 8203
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "document": {
+          "id": "87f63d2d-7299-e321-9f6a-20e5a7292aa5",
+          "workspaceId": "da683ae0-d8fd-a221-3ef6-27708deea377",
+          "sourceType": "PLATFORM_TERMS",
+          "title": "string",
+          "sourceUri": "string",
+          "sourceVersion": "string",
+          "jurisdiction": "string",
+          "effectiveFrom": "2001-08-27",
+          "effectiveUntil": "1993-01-16",
+          "contentSha256": "string",
+          "status": "string",
+          "chunks": [
+            {
+              "id": "8d4f0c37-4f64-978e-0c87-eb2419a6bf93",
+              "chunkIndex": 3784,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 1873,
+              "endOffset": 9474
+            },
+            {
+              "id": "0293abc0-0a64-430b-3b27-eab560494df1",
+              "chunkIndex": 2433,
+              "content": "string",
+              "embeddingModel": "string",
+              "startOffset": 3066,
+              "endOffset": 2406
+            }
+          ],
+          "createdBy": "a5e2017d-c35a-e70d-f74b-ee8aef38b31a",
+          "createdAt": "1974-02-12T19:50:09.591Z",
+          "version": 8525,
+          "origin": "string",
+          "memoryType": "string",
+          "confirmationStatus": "string",
+          "retrievalEligible": true,
+          "projectId": "bc26151d-2a73-0273-c32b-ab130a84f970",
+          "sourceRunId": "806b607a-afa5-90a1-8181-c07b4a02eaae",
+          "sourceMessageIds": [
+            "80197bca-fcbb-f516-5638-b1d2ab0c82dd",
+            "e7abe5e9-7fad-8b12-b2c3-f372ef01f546"
+          ],
+          "parentDocumentIds": [
+            "56e4a11a-83cb-9ad1-d8df-d0bdc3b004e8",
+            "65c36b30-133d-e524-f12e-9206f6b6274d"
+          ],
+          "supersedes": "97a92b67-b04e-1596-0141-bf42409b9f8f",
+          "revisionNumber": 7442,
+          "confirmedBy": "7bc064dd-3e38-a18d-2b6d-831b0eb0323c",
+          "confirmedAt": "2022-03-23T03:08:02.762Z",
+          "sourceMessages": [
+            {
+              "id": "8d9ff9b1-9a1a-de44-553d-8212f9c99d0a",
+              "eventOrder": 6851,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "1979-02-09T08:23:11.692Z"
+            },
+            {
+              "id": "03e7ca5d-529d-e5ba-28d1-200a91d2f284",
+              "eventOrder": 3988,
+              "kind": "string",
+              "content": "string",
+              "prompt": "string",
+              "createdAt": "1992-11-15T19:55:42.154Z"
+            }
+          ]
+        },
+        "indexStatus": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "document": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "workspaceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "sourceType": {
+                "type": "string",
+                "enum": [
+                  "PAST_PROJECT",
+                  "POLICY",
+                  "PLATFORM_TERMS",
+                  "USER_TEMPLATE",
+                  "EXTERNAL_SOURCE"
+                ]
+              },
+              "title": {
+                "type": "string"
+              },
+              "sourceUri": {
+                "type": "string"
+              },
+              "sourceVersion": {
+                "type": "string"
+              },
+              "jurisdiction": {
+                "type": "string"
+              },
+              "effectiveFrom": {
+                "type": "string",
+                "format": "date"
+              },
+              "effectiveUntil": {
+                "type": "string",
+                "format": "date"
+              },
+              "contentSha256": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "chunks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "chunkIndex": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "embeddingModel": {
+                      "type": "string"
+                    },
+                    "startOffset": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "endOffset": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  }
+                }
+              },
+              "createdBy": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "memoryType": {
+                "type": "string"
+              },
+              "confirmationStatus": {
+                "type": "string"
+              },
+              "retrievalEligible": {
+                "type": "boolean"
+              },
+              "projectId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "sourceRunId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "sourceMessageIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "parentDocumentIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "supersedes": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revisionNumber": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "confirmedBy": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "confirmedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "sourceMessages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "eventOrder": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "indexStatus": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

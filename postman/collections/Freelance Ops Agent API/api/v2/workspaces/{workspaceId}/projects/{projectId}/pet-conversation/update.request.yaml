@@ -1,0 +1,85 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/pet-conversation"
+method: PUT
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "participantPetIds": [
+        "c5b65208-84ae-5216-a106-f31c0e9a6f70",
+        "3799b628-cb39-a5ff-295c-57558a2d51d1",
+        "bb948dc0-f8fb-6644-4463-089645310a5a"
+      ],
+      "petMode": true,
+      "debateEnabled": false,
+      "expectedVersion": 8891
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "petMode": {
+          "type": "boolean"
+        },
+        "debateEnabled": {
+          "type": "boolean"
+        },
+        "participantPetIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "format": "int64"
+        }
+      },
+      "required": [
+        "participantPetIds"
+      ]
+    }
+settings: {}
+examples: ./.resources/update.resources/examples
+order: 2000

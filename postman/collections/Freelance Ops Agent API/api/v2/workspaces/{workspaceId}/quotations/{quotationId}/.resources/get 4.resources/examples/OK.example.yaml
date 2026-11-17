@@ -1,0 +1,259 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/quotations/:quotationId"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    quotationId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "30ddac63-b720-9c83-ed1c-89d6b10d34f7",
+        "workspaceId": "eceed515-2dbf-0572-64cd-15265f5f57a0",
+        "projectId": "df97b76e-a786-ffc8-b1a4-e1ec1d92669f",
+        "seriesId": "88fee51e-bf2f-f43d-d2f3-08f6f93082bd",
+        "previousVersionId": "0b06d31f-05c8-4b22-dcb3-84c93966905c",
+        "versionNumber": 3853,
+        "scenario": "LEAN",
+        "status": "DRAFT",
+        "currency": "string",
+        "subtotal": 5633.714416232495,
+        "discountTotal": 1916.6639997845136,
+        "riskBufferRate": 6695.483057549543,
+        "riskBufferAmount": 2516.8228744095013,
+        "taxRate": 7099.327416636689,
+        "taxAmount": 9225.890544616259,
+        "total": 18.06054656844802,
+        "validUntil": "2016-10-04",
+        "items": [
+          {
+            "rateCardId": "0f075c40-4750-c107-3ce6-c77de4996031",
+            "title": "string",
+            "description": "string",
+            "quantity": 963.1136349952441,
+            "unit": "FIXED",
+            "unitRate": 290.53988665840524,
+            "subtotal": 1165.2298938727845,
+            "discountRate": 9073.262605711396,
+            "discountAmount": 5049.629035763933,
+            "total": 4636.852555139896,
+            "basis": {
+              "type": "ASSUMPTION",
+              "content": "string",
+              "sourceType": "USER_TEMPLATE",
+              "sourceReference": "string",
+              "sourceTitle": "string",
+              "retrievedAt": "2016-06-16T23:27:28.100Z"
+            }
+          },
+          {
+            "rateCardId": "15401424-d6d5-1c2e-4ba3-08fdbb2940a4",
+            "title": "string",
+            "description": "string",
+            "quantity": 5811.860745015493,
+            "unit": "DAY",
+            "unitRate": 8605.187167689568,
+            "subtotal": 1061.1513383433412,
+            "discountRate": 6881.274210110102,
+            "discountAmount": 3467.4955772524054,
+            "total": 1187.4646347755402,
+            "basis": {
+              "type": "ASSUMPTION",
+              "content": "string",
+              "sourceType": "PAST_PROJECT",
+              "sourceReference": "string",
+              "sourceTitle": "string",
+              "retrievedAt": "1953-07-06T03:55:33.771Z"
+            }
+          }
+        ],
+        "publishedAt": "2006-04-15T16:50:29.830Z",
+        "createdBy": "83a7f39a-c576-f5a3-0a83-2a4e19c63f01",
+        "createdAt": "2013-08-16T09:33:07.695Z",
+        "version": 1787
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seriesId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "LEAN",
+              "RECOMMENDED",
+              "EXPANDED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "SUPERSEDED"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "subtotal": {
+            "type": "number"
+          },
+          "discountTotal": {
+            "type": "number"
+          },
+          "riskBufferRate": {
+            "type": "number"
+          },
+          "riskBufferAmount": {
+            "type": "number"
+          },
+          "taxRate": {
+            "type": "number"
+          },
+          "taxAmount": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rateCardId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "HOUR",
+                    "DAY",
+                    "FIXED"
+                  ]
+                },
+                "unitRate": {
+                  "type": "number"
+                },
+                "subtotal": {
+                  "type": "number"
+                },
+                "discountRate": {
+                  "type": "number"
+                },
+                "discountAmount": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "basis": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ASSUMPTION",
+                        "EVIDENCE"
+                      ]
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "sourceType": {
+                      "type": "string",
+                      "enum": [
+                        "PAST_PROJECT",
+                        "POLICY",
+                        "PLATFORM_TERMS",
+                        "USER_TEMPLATE",
+                        "EXTERNAL_SOURCE"
+                      ]
+                    },
+                    "sourceReference": {
+                      "type": "string"
+                    },
+                    "sourceTitle": {
+                      "type": "string"
+                    },
+                    "retrievedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

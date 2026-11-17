@@ -1,0 +1,128 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/agent-runs"
+  method: POST
+  headers:
+    - key: Idempotency-Key
+      value: string
+      disabled: false
+      description: ""
+    - key: traceparent
+      value: string
+      disabled: false
+      description: ""
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "budget": {
+          "maxDurationSeconds": 640,
+          "maxModelCalls": 28,
+          "maxToolCalls": 55,
+          "maxInputTokens": 1839,
+          "maxOutputTokens": 2883,
+          "maxDepartments": 1,
+          "maxHierarchyDepth": 1,
+          "maxSearchCredits": 11,
+          "maxRetries": 0,
+          "maxHandoffs": 8
+        },
+        "locale": "strin",
+        "modelSelection": {
+          "model": "string",
+          "provider": "GEMINI",
+          "reasoningEffort": "NONE",
+          "credentialId": "8114d50b-17ba-7600-b40c-6900f6dcb03f"
+        },
+        "requirementText": "string",
+        "safetyContext": {
+          "externalSideEffect": false,
+          "sensitiveData": true,
+          "financialAuthorityRequired": true,
+          "legalAuthorityRequired": true,
+          "irreversibleAction": false,
+          "approvalRequired": false,
+          "authorityVerified": true
+        },
+        "jurisdictionCode": "string",
+        "creditQuote": {
+          "pricingUpdatedAt": "1997-10-14T03:39:44.515Z",
+          "credits": 15883
+        },
+        "attachmentIds": [
+          "0f306ba2-0700-a78c-082c-baeea9a7917a",
+          "85045b6f-4afa-4dfc-643d-ef188e2b5906",
+          "4c2121f5-3555-c78d-c034-4032eabf5569",
+          "1acb3f09-1d1c-89b4-996a-2e3cd97f46ed",
+          "4451bf63-fc1a-7ca6-b988-8d7c834242b9",
+          "9b67809b-3e59-4d2c-3fe5-870a3a7ba77b"
+        ],
+        "skillSelection": {
+          "mode": "string",
+          "manualIds": [
+            "string",
+            "string"
+          ],
+          "excludedIds": [
+            "string",
+            "string"
+          ],
+          "catalogVersion": "string"
+        },
+        "workflowMode": "PROJECT_ANALYSIS",
+        "byokCostNoticeVersion": "string",
+        "conversation": {
+          "settingsVersion": 783,
+          "recipientPetId": "506e5753-12d6-6ba5-30d7-a8a94a8d6aab"
+        }
+      }
+response:
+  statusCode: 202
+  statusText: Accepted
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "runId": "1a9e7e44-ef2f-b38d-1471-8b0caa6efdf3",
+        "status": "WAITING_FOR_USER",
+        "acceptedAt": "1975-08-21T06:06:51.877Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "WAITING_FOR_USER",
+              "COMPLETED",
+              "PARTIAL",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

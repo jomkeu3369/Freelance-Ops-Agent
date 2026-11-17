@@ -1,0 +1,1495 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/cancel"
+  method: POST
+  headers:
+    - key: traceparent
+      value: string
+      disabled: false
+      description: ""
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "runId": "7891e981-f8f6-25c2-626c-f49c46080dca",
+        "status": "COMPLETED",
+        "activeDepartment": "REQUIREMENTS",
+        "interruption": {
+          "interruptionId": "d5a81b46-5dec-3edd-de04-2798f262ea84",
+          "kind": "QUOTE_APPROVAL",
+          "questions": [
+            "string",
+            "string"
+          ]
+        },
+        "result": {
+          "projectSummary": "string",
+          "openQuestions": [
+            "string",
+            "string"
+          ],
+          "departmentResults": [
+            {
+              "department": "DEAL_DESIGN",
+              "status": "string",
+              "summary": "string",
+              "evidenceIds": [
+                "256f6196-e2e0-ed70-9bf0-21844079e69d",
+                "27d70179-13ca-b4b1-2d79-c8b399f09456"
+              ],
+              "assumptionIds": [
+                "e17ef643-1c49-4983-4059-df4757a222dc",
+                "de095626-77df-c0f5-ccbb-f28515f040db"
+              ],
+              "sources": [
+                {
+                  "title": "string",
+                  "url": "string",
+                  "provider": "string",
+                  "contentSha256": "string",
+                  "fetchedAt": "2012-08-18T18:10:54.030Z",
+                  "authorityLevel": "string",
+                  "jurisdiction": "string",
+                  "excerpt": "string"
+                },
+                {
+                  "title": "string",
+                  "url": "string",
+                  "provider": "string",
+                  "contentSha256": "string",
+                  "fetchedAt": "1997-02-04T23:39:56.050Z",
+                  "authorityLevel": "string",
+                  "jurisdiction": "string",
+                  "excerpt": "string"
+                }
+              ],
+              "errorCode": "string"
+            },
+            {
+              "department": "RESEARCH",
+              "status": "string",
+              "summary": "string",
+              "evidenceIds": [
+                "f6f7292b-44bc-00c8-3b46-f3011cd99334",
+                "56459160-1a69-2303-6779-f082d4bf90fa"
+              ],
+              "assumptionIds": [
+                "002e8fd0-10bb-cca5-9bd8-4b6867d731e3",
+                "be591741-f834-04d3-3e64-cf4d803d32ca"
+              ],
+              "sources": [
+                {
+                  "title": "string",
+                  "url": "string",
+                  "provider": "string",
+                  "contentSha256": "string",
+                  "fetchedAt": "1980-12-22T22:47:56.538Z",
+                  "authorityLevel": "string",
+                  "jurisdiction": "string",
+                  "excerpt": "string"
+                },
+                {
+                  "title": "string",
+                  "url": "string",
+                  "provider": "string",
+                  "contentSha256": "string",
+                  "fetchedAt": "1995-02-24T02:14:30.613Z",
+                  "authorityLevel": "string",
+                  "jurisdiction": "string",
+                  "excerpt": "string"
+                }
+              ],
+              "errorCode": "string"
+            }
+          ],
+          "quotationDraft": {
+            "scenario": "string",
+            "items": [
+              {
+                "title": "string",
+                "description": "string",
+                "quantity": 6449.151576764653,
+                "unit": "string",
+                "rateCardHint": "string",
+                "basis": {
+                  "type": "string",
+                  "content": "string",
+                  "sourceReference": "string",
+                  "sourceTitle": "string"
+                }
+              },
+              {
+                "title": "string",
+                "description": "string",
+                "quantity": 8595.21104053425,
+                "unit": "string",
+                "rateCardHint": "string",
+                "basis": {
+                  "type": "string",
+                  "content": "string",
+                  "sourceReference": "string",
+                  "sourceTitle": "string"
+                }
+              }
+            ],
+            "petPerspective": {
+              "proposal": "string",
+              "rationale": "string",
+              "tradeoff": "string"
+            }
+          },
+          "quotationDrafts": [
+            {
+              "scenario": "string",
+              "items": [
+                {
+                  "title": "string",
+                  "description": "string",
+                  "quantity": 3769.553177277658,
+                  "unit": "string",
+                  "rateCardHint": "string",
+                  "basis": {
+                    "type": "string",
+                    "content": "string",
+                    "sourceReference": "string",
+                    "sourceTitle": "string"
+                  }
+                },
+                {
+                  "title": "string",
+                  "description": "string",
+                  "quantity": 3149.644026342258,
+                  "unit": "string",
+                  "rateCardHint": "string",
+                  "basis": {
+                    "type": "string",
+                    "content": "string",
+                    "sourceReference": "string",
+                    "sourceTitle": "string"
+                  }
+                }
+              ],
+              "petPerspective": {
+                "proposal": "string",
+                "rationale": "string",
+                "tradeoff": "string"
+              }
+            },
+            {
+              "scenario": "string",
+              "items": [
+                {
+                  "title": "string",
+                  "description": "string",
+                  "quantity": 2849.2414330512415,
+                  "unit": "string",
+                  "rateCardHint": "string",
+                  "basis": {
+                    "type": "string",
+                    "content": "string",
+                    "sourceReference": "string",
+                    "sourceTitle": "string"
+                  }
+                },
+                {
+                  "title": "string",
+                  "description": "string",
+                  "quantity": 1497.75343607498,
+                  "unit": "string",
+                  "rateCardHint": "string",
+                  "basis": {
+                    "type": "string",
+                    "content": "string",
+                    "sourceReference": "string",
+                    "sourceTitle": "string"
+                  }
+                }
+              ],
+              "petPerspective": {
+                "proposal": "string",
+                "rationale": "string",
+                "tradeoff": "string"
+              }
+            }
+          ],
+          "referencedDocumentIds": [
+            "fec029c9-5784-5bb6-2341-d81db951dc01",
+            "78a0b8cd-ad5a-b139-9c1e-049dd39ce953"
+          ],
+          "petMessages": [
+            {
+              "messageId": "999e2601-1a47-f313-d8c7-cc42434aac20",
+              "speakerPetId": "920885e7-bb39-1a37-3d9a-2863cc759482",
+              "speaker": {
+                "accessory": "glasses",
+                "animal": "cat",
+                "color": "ink",
+                "deliveryPriority": "SPEED",
+                "duty": "WRITING",
+                "name": " N_ _",
+                "preferences": {
+                  "communication": "string",
+                  "focus": "string",
+                  "personality": "string",
+                  "requests": [
+                    "string",
+                    "string",
+                    "string",
+                    "string",
+                    "string",
+                    "string"
+                  ],
+                  "responsibility": "string"
+                },
+                "scopePriority": "BALANCED",
+                "skillMode": "AUTO",
+                "slot": "RECOMMENDED",
+                "tone": "WARM",
+                "valuePriority": "PROFIT",
+                "petId": "66b716c9-8973-d3ce-4da2-493776ff3eb1",
+                "sprite": {
+                  "palette": [
+                    "#D6fDfF",
+                    "#aa663d",
+                    "#Fcf84E",
+                    "#e3e2cA",
+                    "#8D6a0b",
+                    "#987965",
+                    "#81DCc5",
+                    "#ea4f9B",
+                    "#2cdDEe",
+                    "#33AffE",
+                    "#eC59Cd",
+                    "#B12885",
+                    "#a7d4c6",
+                    "#DAEE06",
+                    "#9E89e4"
+                  ],
+                  "rows": [
+                    "5A2.2..5A993C60.EADB66EA45.E1894",
+                    "6764A4824239D7780..5.69C728D45.E",
+                    "ACCBB123.497.921E859E9C7C135C50C",
+                    "928DE64B5523B.0BDC30E.39319730.A",
+                    "0A29327782CD..98.10.A.6240350BD7",
+                    "DE8E5E5C08016669554C41CCDB28E.05",
+                    ".15A40BCAC4BD16E374E7A3D6897862D",
+                    "D9D167769769EA434E271DC3B255A64C",
+                    "523ADEC238E9C6D4B4E7AB330A8A44ED",
+                    "296456.C66BBA0ADB6039A966B9488C7",
+                    "10E3C037E1E0192..D5A.C34B15C37BE",
+                    "420063.044DD9178E0E2CA4C7CE7.439",
+                    "9DE0B4E796.1266CB837448EDBD53BBE",
+                    "2EB20A5913EDE8C55D49BE879E4C70A4",
+                    "31.E3D7096B12AD.E9C54C3678C78.1.",
+                    "7CDAAB19D86236BCA0.A55924D009D00",
+                    "251249E2079D98CCD9.EEA3E3BEEB027",
+                    "EDB9174B9.B971B43089684.43227E66",
+                    "229EB7C05B4836E01.A059E356C41EED",
+                    "BE299844DB416D9B0C2D26E4D488DE37"
+                  ],
+                  "species": "string"
+                }
+              },
+              "replyToMessageId": "c9966e88-a459-8ea2-ddba-9e75c3099a8a",
+              "text": "string",
+              "evidenceRefs": [
+                "string",
+                "string"
+              ],
+              "evidence": [
+                {
+                  "id": "string",
+                  "title": "string",
+                  "content": "string"
+                },
+                {
+                  "id": "string",
+                  "title": "string",
+                  "content": "string"
+                }
+              ]
+            },
+            {
+              "messageId": "589f1d7f-858e-b6f0-fc71-14f7fffa2460",
+              "speakerPetId": "eee7ce32-141b-8d01-d2e1-35f2bf45e959",
+              "speaker": {
+                "accessory": "star",
+                "animal": "owl",
+                "color": "ink",
+                "deliveryPriority": "BALANCED",
+                "duty": "WRITING",
+                "name": "L{{NL_ }}L",
+                "preferences": {
+                  "communication": "string",
+                  "focus": "string",
+                  "personality": "string",
+                  "requests": [
+                    "string",
+                    "string",
+                    "string",
+                    "string",
+                    "string",
+                    "string"
+                  ],
+                  "responsibility": "string"
+                },
+                "scopePriority": "CAUTIOUS",
+                "skillMode": "AUTO",
+                "slot": "RECOMMENDED",
+                "tone": "WARM",
+                "valuePriority": "RELATIONSHIP",
+                "petId": "bcfee7cf-db38-44f8-98ba-11a604636c39",
+                "sprite": {
+                  "palette": [
+                    "#4D757b",
+                    "#Ad6Efa",
+                    "#0eD40B",
+                    "#D216F6",
+                    "#95881E",
+                    "#3Cdb66",
+                    "#77f4C4",
+                    "#2E9B4E",
+                    "#Efd0dF",
+                    "#eD5E29",
+                    "#bD2eDc",
+                    "#B1aBa0",
+                    "#2A77BD",
+                    "#aa7c7d",
+                    "#b5d0c8"
+                  ],
+                  "rows": [
+                    "80627284BCD9C330D45C50.5B744D23B",
+                    "DC05B217DA.5A1D40499D083A474512C",
+                    "03E15D04742810E54C8.34740.844DEC",
+                    "258..683E5AC38.1E.5E008B33D8AEDA",
+                    "597EEBE9623CB0.1CC68E7B7703BA973",
+                    "3816C.BBE8849A7585EE7A215BB9DDCB",
+                    "715.DA44961E2DE9351.9D896D0537D5",
+                    "86.95A3E74CA0A13529A8A6E8CE336B1",
+                    "D.9458EC7E0.C880A9.E2B8E09BC5A..",
+                    "6764B5.B805.2A1561E7D13975097568",
+                    "87971.DC.80660BEAE93532B97574BBE",
+                    "94313A310D703C69D88.1.A5E..1.79A",
+                    "3964539405194DC466174A8AECD16E89",
+                    "639DE1C15C8.24C4C8063EE95E2CDB88",
+                    "0.76682EC916E706E.389EA5E7EE98AC",
+                    "242C0D03C4645944415170530E86BB1E",
+                    "EEE45EE4BDB99D0.5A17EA6.8C6A8921",
+                    "432CC.73784662EC9B3DDA1C6B.DB056",
+                    "CEE1904245595940CD.1558C888E588B",
+                    "3E2B0E.992622631A.42E.5..4070E64"
+                  ],
+                  "species": "string"
+                }
+              },
+              "replyToMessageId": "7de9afa1-e2b2-3107-1f44-6c00e6161d7b",
+              "text": "string",
+              "evidenceRefs": [
+                "string",
+                "string"
+              ],
+              "evidence": [
+                {
+                  "id": "string",
+                  "title": "string",
+                  "content": "string"
+                },
+                {
+                  "id": "string",
+                  "title": "string",
+                  "content": "string"
+                }
+              ]
+            }
+          ]
+        },
+        "errorCode": "string",
+        "metadata": {
+          "provider": "GEMINI",
+          "model": "string",
+          "promptVersion": "string",
+          "toolSchemaVersion": "string",
+          "traceId": "string",
+          "credentialId": "32a8c6e8-4d40-4ad9-b1f8-eac20cdea306",
+          "petProfiles": [
+            {
+              "accessory": "none",
+              "animal": "pixel",
+              "color": "rose",
+              "deliveryPriority": "SPEED",
+              "duty": "WRITING",
+              "name": "p}p{{}pLL",
+              "preferences": {
+                "communication": "string",
+                "focus": "string",
+                "personality": "string",
+                "requests": [
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string"
+                ],
+                "responsibility": "string"
+              },
+              "scopePriority": "CAUTIOUS",
+              "skillMode": "AUTO",
+              "slot": "RECOMMENDED",
+              "tone": "FORMAL",
+              "valuePriority": "BALANCED",
+              "petId": "b1ea635b-f9f7-5df8-5ec8-c57c96b237a6",
+              "sprite": {
+                "palette": [
+                  "#5Ddd65",
+                  "#a1C7fe",
+                  "#C8a14E",
+                  "#eDDAEe",
+                  "#B9e7Dd",
+                  "#aA1EFA",
+                  "#De086E",
+                  "#29fA1A",
+                  "#1DF429",
+                  "#1C6dAc",
+                  "#570Fed",
+                  "#5a2EA9",
+                  "#dffbbe",
+                  "#CBf98f",
+                  "#08Cdd5"
+                ],
+                "rows": [
+                  "12AE.8D.B79CE32AB.EB34E8BBD423A3",
+                  "69.96E8603A587A22E760AE0006B7025",
+                  "6A.796C0A589ABBB6B32D94D44868D81",
+                  "8B0C6D66251CB.2D1DE.9655981D66DA",
+                  "B7197B49C7AA8.51D284633E1946BDA0",
+                  "537509148C721262255E100291A26EDC",
+                  ".EC.78878C37E8B9.523E8D42D326A3B",
+                  "268AAB36E0B3080DC.36D79BB85.04B8",
+                  "99.C9040684ED3D856.6A.12ACB7BACB",
+                  "9014D53.266C810CAB8A34EB.C8..0CE",
+                  ".916.5A35C3D9C478B8A3939C8C49CD1",
+                  "271476D669B9E9CA76B356D8BB9A6D4E",
+                  "906588.5B3EA.3626DA7B855D3.465B9",
+                  "AE7BB3.1565AE1AE3.CED6A.08063B92",
+                  "7574488E12D80B8144A0B9.7ECE4E8A.",
+                  "8C9D..A7D644E6BD836.0E6E2D2D4946",
+                  "C42E3.27AC8BC1DC3517EACC5295D440",
+                  "88.3.34188EBD4480188E2E3AD120B04",
+                  "D9B41306C5325530D.1EC28E0BBB1E8C",
+                  "5C726EAC5AC02BBA0917702EEE69D5D3"
+                ],
+                "species": "string"
+              }
+            },
+            {
+              "accessory": "glasses",
+              "animal": "pixel",
+              "color": "peach",
+              "deliveryPriority": "QUALITY",
+              "duty": "DESIGN",
+              "name": "-_{L}L",
+              "preferences": {
+                "communication": "string",
+                "focus": "string",
+                "personality": "string",
+                "requests": [
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string",
+                  "string"
+                ],
+                "responsibility": "str"
+              },
+              "scopePriority": "CAUTIOUS",
+              "skillMode": "AUTO",
+              "slot": "LEAN",
+              "tone": "FORMAL",
+              "valuePriority": "PROFIT",
+              "petId": "19abc06c-8176-24c7-0685-8d0d62e1a70f",
+              "sprite": {
+                "palette": [
+                  "#e70ed1",
+                  "#CD7d6d",
+                  "#FDEeCe",
+                  "#C9AAE5",
+                  "#f6A85f",
+                  "#e99fEC",
+                  "#4BCa2a",
+                  "#37D761",
+                  "#D9DED5",
+                  "#F345fC",
+                  "#450240",
+                  "#Db96Ed",
+                  "#3aCec2",
+                  "#cd8A57",
+                  "#d83A8a"
+                ],
+                "rows": [
+                  ".1E0289894B144437A1EE0B6082769E4",
+                  "A02.7B.20D5D8C492.24B66EE06BCD72",
+                  "2.46A9B68A0.610EDDA.797CB53..DE3",
+                  "9008D7A3618860DB04C0ED8B70A1A06C",
+                  "D9125892CDC3892C.3CCC47302B9B91C",
+                  "DCD44BA094870B0D14C.87053D9992.8",
+                  "1586425ECC14362E7D405CE4.9245B0E",
+                  "0A.9D776436D8954.D1D3AA.6D329959",
+                  "081B3D9D64867A28.B4364B66E717C.C",
+                  "26DB229A.68A7A.127.13.592B2.AE71",
+                  "279A2EC822392253ECBD6B7891357351",
+                  "1A04DCB019589A56D8BA030A53B6.DB4",
+                  "3526DD.840975D2CD189.72D4D669B34",
+                  "5B137D52709E037E38B58510A1C64615",
+                  "9DE068105E99.212.7.D15E7D.68..39",
+                  "40B.E156719D96D2D1696722..E92.18",
+                  "684DB748ECBC3BCAB6A04A5AAEB000.2",
+                  "452836AAB35.9E13E9CA1CB.65.B4C9.",
+                  "7CE039387.D25D861840BE6284E.6082",
+                  "86D7ECA090A4E8D.B7E2429A819262E."
+                ],
+                "species": "string"
+              }
+            }
+          ],
+          "skillSelection": {
+            "mode": "string",
+            "manualIds": [
+              "string",
+              "string"
+            ],
+            "excludedIds": [
+              "string",
+              "string"
+            ],
+            "catalogVersion": "string"
+          },
+          "resolvedSkillIds": [
+            "string",
+            "string"
+          ],
+          "deferredSkillIds": [
+            "string",
+            "string"
+          ]
+        },
+        "usage": {
+          "requestTier": "SINGLE_AGENT",
+          "modelCalls": 6053,
+          "toolCalls": 4436,
+          "inputTokens": 5353,
+          "outputTokens": 7681,
+          "cachedTokens": 8043,
+          "searchCredits": 9853,
+          "crawledPages": 3163,
+          "retryCount": 812,
+          "durationMs": 5247,
+          "providerCalls": [
+            {
+              "callId": "3da74c2d-dd0b-308b-7074-ae25a2de10b0",
+              "provider": "GEMINI",
+              "model": "string",
+              "operation": "string",
+              "inputTokens": 739,
+              "outputTokens": 6783,
+              "cachedReadTokens": 8478,
+              "cacheWriteTokens": 9309,
+              "costUsd": 7386.280264016981,
+              "reservedCostUsd": 3055.97701277919,
+              "usageKnown": true,
+              "fundingSource": "string"
+            },
+            {
+              "callId": "b6dc82c4-61fb-0c4b-2902-f03044fd4203",
+              "provider": "GEMINI",
+              "model": "string",
+              "operation": "string",
+              "inputTokens": 1033,
+              "outputTokens": 367,
+              "cachedReadTokens": 9648,
+              "cacheWriteTokens": 8317,
+              "costUsd": 1672.4740800908633,
+              "reservedCostUsd": 5292.341924998585,
+              "usageKnown": false,
+              "fundingSource": "string"
+            }
+          ],
+          "platformCostUsd": 2827.334246672112,
+          "platformReservationId": "5553fa4e-9d7a-2876-c484-24477a21b106",
+          "tariffVersion": "string",
+          "executionClosed": false,
+          "unpricedExposure": true,
+          "byokScopeId": "66e21e98-814c-8313-28e6-cee16abf653d",
+          "externalToolCalls": [
+            {
+              "callId": "4eb004f8-ff9b-38e7-e60f-8fbc623516f9",
+              "provider": "string",
+              "operation": "string",
+              "tariffVersion": "string",
+              "credits": 5882,
+              "reservedCostUsd": 1147.1832099652424,
+              "costUsd": 1959.0804198114176,
+              "usageKnown": false
+            },
+            {
+              "callId": "4f7d71bc-328b-c4d9-64c2-b8b119576dfb",
+              "provider": "string",
+              "operation": "string",
+              "tariffVersion": "string",
+              "credits": 4719,
+              "reservedCostUsd": 8239.65132387546,
+              "costUsd": 1640.2314356391412,
+              "usageKnown": false
+            }
+          ]
+        },
+        "updatedAt": "1963-09-01T07:58:07.331Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "WAITING_FOR_USER",
+              "COMPLETED",
+              "PARTIAL",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "activeDepartment": {
+            "type": "string",
+            "enum": [
+              "REQUIREMENTS",
+              "RESEARCH",
+              "DEAL_DESIGN",
+              "VERIFICATION"
+            ]
+          },
+          "interruption": {
+            "type": "object",
+            "properties": {
+              "interruptionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "CLARIFICATION",
+                  "RISK_DECISION",
+                  "QUOTE_APPROVAL"
+                ]
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "projectSummary": {
+                "type": "string"
+              },
+              "openQuestions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "departmentResults": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "department": {
+                      "type": "string",
+                      "enum": [
+                        "REQUIREMENTS",
+                        "RESEARCH",
+                        "DEAL_DESIGN",
+                        "VERIFICATION"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "evidenceIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "assumptionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "contentSha256": {
+                            "type": "string"
+                          },
+                          "fetchedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "authorityLevel": {
+                            "type": "string"
+                          },
+                          "jurisdiction": {
+                            "type": "string"
+                          },
+                          "excerpt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "quotationDraft": {
+                "type": "object",
+                "properties": {
+                  "scenario": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "format": "double"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "rateCardHint": {
+                          "type": "string"
+                        },
+                        "basis": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "sourceReference": {
+                              "type": "string"
+                            },
+                            "sourceTitle": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "petPerspective": {
+                    "type": "object",
+                    "properties": {
+                      "proposal": {
+                        "type": "string"
+                      },
+                      "rationale": {
+                        "type": "string"
+                      },
+                      "tradeoff": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "quotationDrafts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "scenario": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "format": "double"
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "rateCardHint": {
+                            "type": "string"
+                          },
+                          "basis": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "sourceReference": {
+                                "type": "string"
+                              },
+                              "sourceTitle": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "petPerspective": {
+                      "type": "object",
+                      "properties": {
+                        "proposal": {
+                          "type": "string"
+                        },
+                        "rationale": {
+                          "type": "string"
+                        },
+                        "tradeoff": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "referencedDocumentIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "petMessages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "messageId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "speakerPetId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "speaker": {
+                      "type": "object",
+                      "properties": {
+                        "slot": {
+                          "type": "string",
+                          "pattern": "LEAN|RECOMMENDED|EXPANDED"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 20,
+                          "pattern": "[\\p{L}\\p{N} _-]+"
+                        },
+                        "animal": {
+                          "type": "string",
+                          "pattern": "turtle|owl|cat|pixel"
+                        },
+                        "color": {
+                          "type": "string",
+                          "pattern": "sage|lavender|peach|sky|rose|ink"
+                        },
+                        "accessory": {
+                          "type": "string",
+                          "pattern": "none|glasses|scarf|star"
+                        },
+                        "tone": {
+                          "type": "string",
+                          "pattern": "WARM|DIRECT|FORMAL"
+                        },
+                        "valuePriority": {
+                          "type": "string",
+                          "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+                        },
+                        "deliveryPriority": {
+                          "type": "string",
+                          "pattern": "SPEED|BALANCED|QUALITY"
+                        },
+                        "scopePriority": {
+                          "type": "string",
+                          "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+                        },
+                        "petId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "duty": {
+                          "type": "string",
+                          "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+                        },
+                        "skillMode": {
+                          "type": "string",
+                          "pattern": "AUTO"
+                        },
+                        "preferences": {
+                          "type": "object",
+                          "properties": {
+                            "personality": {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 500
+                            },
+                            "communication": {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 500
+                            },
+                            "focus": {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 500
+                            },
+                            "responsibility": {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 500
+                            },
+                            "requests": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 0,
+                                "maxLength": 500
+                              }
+                            }
+                          },
+                          "required": [
+                            "communication",
+                            "focus",
+                            "personality",
+                            "requests",
+                            "responsibility"
+                          ]
+                        },
+                        "sprite": {
+                          "type": "object",
+                          "properties": {
+                            "species": {
+                              "type": "string",
+                              "minLength": 0,
+                              "maxLength": 32
+                            },
+                            "palette": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "#[0-9a-fA-F]{6}"
+                              }
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "[.0-9A-E]{32}"
+                              }
+                            }
+                          },
+                          "required": [
+                            "palette",
+                            "rows",
+                            "species"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accessory",
+                        "animal",
+                        "color",
+                        "deliveryPriority",
+                        "duty",
+                        "name",
+                        "preferences",
+                        "scopePriority",
+                        "skillMode",
+                        "slot",
+                        "tone",
+                        "valuePriority"
+                      ]
+                    },
+                    "replyToMessageId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "evidenceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "content": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "OPENAI",
+                  "GEMINI"
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "promptVersion": {
+                "type": "string"
+              },
+              "toolSchemaVersion": {
+                "type": "string"
+              },
+              "traceId": {
+                "type": "string"
+              },
+              "credentialId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "petProfiles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "slot": {
+                      "type": "string",
+                      "pattern": "LEAN|RECOMMENDED|EXPANDED"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 20,
+                      "pattern": "[\\p{L}\\p{N} _-]+"
+                    },
+                    "animal": {
+                      "type": "string",
+                      "pattern": "turtle|owl|cat|pixel"
+                    },
+                    "color": {
+                      "type": "string",
+                      "pattern": "sage|lavender|peach|sky|rose|ink"
+                    },
+                    "accessory": {
+                      "type": "string",
+                      "pattern": "none|glasses|scarf|star"
+                    },
+                    "tone": {
+                      "type": "string",
+                      "pattern": "WARM|DIRECT|FORMAL"
+                    },
+                    "valuePriority": {
+                      "type": "string",
+                      "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+                    },
+                    "deliveryPriority": {
+                      "type": "string",
+                      "pattern": "SPEED|BALANCED|QUALITY"
+                    },
+                    "scopePriority": {
+                      "type": "string",
+                      "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+                    },
+                    "petId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "duty": {
+                      "type": "string",
+                      "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+                    },
+                    "skillMode": {
+                      "type": "string",
+                      "pattern": "AUTO"
+                    },
+                    "preferences": {
+                      "type": "object",
+                      "properties": {
+                        "personality": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "communication": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "focus": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "responsibility": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 500
+                        },
+                        "requests": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 500
+                          }
+                        }
+                      },
+                      "required": [
+                        "communication",
+                        "focus",
+                        "personality",
+                        "requests",
+                        "responsibility"
+                      ]
+                    },
+                    "sprite": {
+                      "type": "object",
+                      "properties": {
+                        "species": {
+                          "type": "string",
+                          "minLength": 0,
+                          "maxLength": 32
+                        },
+                        "palette": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "#[0-9a-fA-F]{6}"
+                          }
+                        },
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "[.0-9A-E]{32}"
+                          }
+                        }
+                      },
+                      "required": [
+                        "palette",
+                        "rows",
+                        "species"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accessory",
+                    "animal",
+                    "color",
+                    "deliveryPriority",
+                    "duty",
+                    "name",
+                    "preferences",
+                    "scopePriority",
+                    "skillMode",
+                    "slot",
+                    "tone",
+                    "valuePriority"
+                  ]
+                }
+              },
+              "skillSelection": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string"
+                  },
+                  "manualIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "excludedIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "catalogVersion": {
+                    "type": "string"
+                  }
+                }
+              },
+              "resolvedSkillIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "deferredSkillIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "requestTier": {
+                "type": "string",
+                "enum": [
+                  "DIRECT_TOOL",
+                  "SINGLE_AGENT",
+                  "DEPARTMENT",
+                  "MULTI_DEPARTMENT",
+                  "HUMAN_REQUIRED"
+                ]
+              },
+              "modelCalls": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "toolCalls": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "inputTokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "outputTokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "cachedTokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "searchCredits": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "crawledPages": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "retryCount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "durationMs": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "providerCalls": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "callId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "OPENAI",
+                        "GEMINI"
+                      ]
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "cachedReadTokens": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "cacheWriteTokens": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "costUsd": {
+                      "type": "number"
+                    },
+                    "reservedCostUsd": {
+                      "type": "number"
+                    },
+                    "usageKnown": {
+                      "type": "boolean"
+                    },
+                    "fundingSource": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "platformCostUsd": {
+                "type": "number"
+              },
+              "platformReservationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "tariffVersion": {
+                "type": "string"
+              },
+              "executionClosed": {
+                "type": "boolean"
+              },
+              "unpricedExposure": {
+                "type": "boolean"
+              },
+              "byokScopeId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "externalToolCalls": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "callId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "tariffVersion": {
+                      "type": "string"
+                    },
+                    "credits": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "reservedCostUsd": {
+                      "type": "number"
+                    },
+                    "costUsd": {
+                      "type": "number"
+                    },
+                    "usageKnown": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

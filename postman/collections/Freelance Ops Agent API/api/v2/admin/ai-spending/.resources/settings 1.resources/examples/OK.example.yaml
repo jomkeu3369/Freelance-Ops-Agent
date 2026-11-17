@@ -1,0 +1,106 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/ai-spending"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "currency": "string",
+        "accountWeekUsd": "string",
+        "globalDayUsd": "string",
+        "globalWeekUsd": "string",
+        "revision": 8589,
+        "updatedAt": "1955-04-04T15:49:21.946Z",
+        "spendingEnabled": false,
+        "models": [
+          {
+            "provider": "GEMINI",
+            "model": "string",
+            "maxRunUsd": 5343.651943693059,
+            "enabled": false
+          },
+          {
+            "provider": "GEMINI",
+            "model": "string",
+            "maxRunUsd": 1405.4282241667493,
+            "enabled": false
+          }
+        ],
+        "maxBudgetUsd": 616.8248656965236,
+        "maxModelRunUsd": 5953.96949536491
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "accountWeekUsd": {
+            "type": "string"
+          },
+          "globalDayUsd": {
+            "type": "string"
+          },
+          "globalWeekUsd": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "spendingEnabled": {
+            "type": "boolean"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "OPENAI",
+                    "GEMINI"
+                  ]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "maxRunUsd": {
+                  "type": "number"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "maxBudgetUsd": {
+            "type": "number"
+          },
+          "maxModelRunUsd": {
+            "type": "number"
+          }
+        }
+      }
+order: 1000

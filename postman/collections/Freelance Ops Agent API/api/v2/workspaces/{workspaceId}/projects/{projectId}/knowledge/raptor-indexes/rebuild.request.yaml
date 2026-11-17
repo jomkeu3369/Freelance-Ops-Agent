@@ -1,0 +1,109 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/knowledge/raptor-indexes"
+method: POST
+headers:
+  - key: traceparent
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "embeddingModel": "string",
+      "provider": "GEMINI",
+      "summaryModel": "string",
+      "targetClusterSize": 18,
+      "maxSummaryLevels": 4,
+      "kmeansIterations": 49
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "OPENAI",
+            "GEMINI"
+          ]
+        },
+        "embeddingModel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "summaryModel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "targetClusterSize": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 50,
+          "format": "int32"
+        },
+        "maxSummaryLevels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "format": "int32"
+        },
+        "kmeansIterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "format": "int32"
+        }
+      },
+      "required": [
+        "embeddingModel",
+        "provider",
+        "summaryModel"
+      ]
+    }
+settings: {}
+examples: ./.resources/rebuild.resources/examples
+order: 1000

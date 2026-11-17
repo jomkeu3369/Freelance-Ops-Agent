@@ -1,0 +1,27 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+body:
+  type: json
+  content: |-
+    {
+      "email": "jomkeu@example.com",
+      "password": "Password123!"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: "const res = pm.response.json();\r
+
+      if (res.accessToken) pm.collectionVariables.set(\"bearerToken\", res.accessToken);\r
+
+      if (res.workspaceId) pm.collectionVariables.set(\"workspaceId\", res.workspaceId);"
+    language: text/javascript
+settings: {}
+examples: ./.resources/login.resources/examples
+order: 1000

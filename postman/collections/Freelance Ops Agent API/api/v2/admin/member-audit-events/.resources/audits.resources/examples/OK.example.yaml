@@ -1,0 +1,122 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/member-audit-events?page=0&size=25"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    page: "0"
+    size: "25"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "items": [
+          {
+            "id": "7aada8fc-21ff-4a8f-0fd2-82ad76a6c762",
+            "source": "string",
+            "actorUserId": "db5a0575-3ae1-32df-f09e-bf16c2d559cb",
+            "action": "string",
+            "target": "string",
+            "previousValue": "string",
+            "newValue": "string",
+            "previousEpoch": 716,
+            "newEpoch": 8391,
+            "createdAt": "1955-07-24T06:44:49.583Z"
+          },
+          {
+            "id": "e308de0e-febb-d614-2f04-2c0a18147dbb",
+            "source": "string",
+            "actorUserId": "59d49878-eb01-5c1b-86a4-f009b4096856",
+            "action": "string",
+            "target": "string",
+            "previousValue": "string",
+            "newValue": "string",
+            "previousEpoch": 9372,
+            "newEpoch": 3840,
+            "createdAt": "2001-05-27T08:26:49.622Z"
+          }
+        ],
+        "total": 7506,
+        "page": 4169,
+        "size": 6705,
+        "recordingStartedAt": "1970-09-20T15:36:01.505Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "actorUserId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "previousValue": {
+                  "type": "string"
+                },
+                "newValue": {
+                  "type": "string"
+                },
+                "previousEpoch": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "newEpoch": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordingStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

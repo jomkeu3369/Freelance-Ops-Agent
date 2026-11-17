@@ -1,0 +1,25 @@
+$kind: collection
+description: |-
+  브라우저와 외부 클라이언트가 호출하는 Spring Boot 공개 API
+
+  Contact Support:
+   Name: Freelance Ops Agent
+variables:
+  - key: baseUrl
+    value: http://localhost:8080
+    disabled: false
+  - key: bearerToken
+    secret: true
+    disabled: false
+  - key: workspaceId
+    value: ""
+    disabled: false
+  - key: userId
+    value: ""
+    disabled: false
+auth:
+  - id: c42fca9c-93f9-4d47-abf7-18b0ce277d73
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearerToken}}"

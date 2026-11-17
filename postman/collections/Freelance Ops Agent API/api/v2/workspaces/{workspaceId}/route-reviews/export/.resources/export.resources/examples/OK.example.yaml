@@ -1,0 +1,206 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/export?since=1954-05-17T01:16:48.401Z&until=1954-05-17T01:16:48.401Z&snapshotAt=1954-05-17T01:16:48.401Z&afterOccurredAt=1954-05-17T01:16:48.401Z&afterId=de2b5314-6e0a-8843-21c2-82105d14e423&limit=1000"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    since: 1954-05-17T01:16:48.401Z
+    until: 1954-05-17T01:16:48.401Z
+    snapshotAt: 1954-05-17T01:16:48.401Z
+    afterOccurredAt: 1954-05-17T01:16:48.401Z
+    afterId: de2b5314-6e0a-8843-21c2-82105d14e423
+    limit: "1000"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "since": "1955-07-31T18:22:58.462Z",
+        "until": "1996-08-31T11:43:30.361Z",
+        "snapshotAt": "1986-07-24T06:11:39.068Z",
+        "observations": [
+          {
+            "observationId": "7bfbb57c-6984-a821-24d6-8d5caa82fb52",
+            "runId": "1ca48af9-47f5-184e-41d0-dc890c2c3d57",
+            "eventId": 5122,
+            "workspaceId": "7fdc41d8-a2c1-0d13-07dd-3beca1579c4b",
+            "projectId": "8bec21b5-9005-1c18-6b63-4aefc3dea81d",
+            "occurredAt": "1998-03-02T20:44:08.655Z",
+            "routeData": {
+              "key_0": "string",
+              "key_1": 8742.630495209294,
+              "key_2": "string",
+              "key_3": true
+            },
+            "routingCostUsd": 2966.571215115905,
+            "pricingSnapshotId": "dfc5b9db-340b-0465-8a3f-63a64c9d9da5",
+            "pricingVersion": "string",
+            "costCurrency": "string"
+          },
+          {
+            "observationId": "02a6430f-2ea8-7aed-aa88-01e013d8336f",
+            "runId": "0b7068a7-9188-d674-d88c-a493a1d396d7",
+            "eventId": 1997,
+            "workspaceId": "21b1eff5-efc7-d1eb-89d1-3cd5bb6600ca",
+            "projectId": "b4443f2f-9a5a-38ae-2fee-e9001a67acbf",
+            "occurredAt": "1979-02-07T21:09:58.297Z",
+            "routeData": {
+              "key_0": true
+            },
+            "routingCostUsd": 1105.8443418980746,
+            "pricingSnapshotId": "03f88ed6-0acf-b197-a28a-f1254e3786f2",
+            "pricingVersion": "string",
+            "costCurrency": "string"
+          }
+        ],
+        "reviews": [
+          {
+            "runId": "6f240344-d5a2-36d1-301c-1ed15549ffeb",
+            "eventId": 5853,
+            "workspaceId": "67ec8341-91ec-530b-bc3f-9b824f2b7148",
+            "goldRoute": "SUPERVISOR",
+            "correctionSource": "HUMAN_REVIEW"
+          },
+          {
+            "runId": "a08ababd-aad8-1b69-1392-fa5bee140761",
+            "eventId": 8690,
+            "workspaceId": "2aea393b-19a7-3aeb-cce4-92f4045b4b18",
+            "goldRoute": "DIRECT_TOOL",
+            "correctionSource": "HUMAN_REVIEW"
+          }
+        ],
+        "nextOccurredAt": "2025-10-26T16:36:39.006Z",
+        "nextObservationId": "f5540170-6de1-dd06-a4bf-7f7d24c797e3",
+        "hasMore": false
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshotAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "observationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "runId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "eventId": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "workspaceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "projectId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "routeData": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "routingCostUsd": {
+                  "type": "number"
+                },
+                "pricingSnapshotId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "pricingVersion": {
+                  "type": "string"
+                },
+                "costCurrency": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "eventId": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "workspaceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "goldRoute": {
+                  "type": "string",
+                  "enum": [
+                    "DIRECT_TOOL",
+                    "SIMPLE_LLM",
+                    "REACT_AGENT",
+                    "SUPERVISOR",
+                    "HUMAN_REQUIRED"
+                  ]
+                },
+                "correctionSource": {
+                  "type": "string",
+                  "enum": [
+                    "HUMAN_REVIEW",
+                    "USER_EDIT",
+                    "POLICY_REPLAY"
+                  ]
+                }
+              }
+            }
+          },
+          "nextOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextObservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      }
+order: 1000

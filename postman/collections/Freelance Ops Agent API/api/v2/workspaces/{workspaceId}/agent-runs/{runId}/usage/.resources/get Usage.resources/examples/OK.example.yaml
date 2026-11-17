@@ -1,0 +1,225 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-runs/:runId/usage"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    runId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "runId": "4a84a3d9-2bcf-f729-0377-2184e85cc0e1",
+        "requestTier": "MULTI_DEPARTMENT",
+        "modelCalls": 5407,
+        "toolCalls": 6362,
+        "inputTokens": 5967,
+        "outputTokens": 5370,
+        "cachedTokens": 2935,
+        "searchCredits": 2428,
+        "crawledPages": 6195,
+        "retryCount": 2212,
+        "durationMs": 7396,
+        "pricingSnapshotId": "c1ea86f8-044d-98cf-fb73-bb05cfbb8b14",
+        "actualCost": 5070.149197608815,
+        "costCurrency": "string",
+        "costStatus": "UNPRICED",
+        "billableOutcome": false,
+        "recordedAt": "1950-02-13T17:44:22.684Z",
+        "providerCalls": [
+          {
+            "callId": "ba337fa5-f520-b4ca-fc93-53e26f79a747",
+            "provider": "OPENAI",
+            "model": "string",
+            "operation": "string",
+            "inputTokens": 8247,
+            "outputTokens": 5379,
+            "cachedReadTokens": 9416,
+            "cacheWriteTokens": 8784,
+            "costUsd": 1546.0517990655565,
+            "reservedCostUsd": 2577.108745669423,
+            "usageKnown": false,
+            "fundingSource": "string"
+          },
+          {
+            "callId": "06e64aa1-6df8-960d-e1a5-5aa749eff50c",
+            "provider": "GEMINI",
+            "model": "string",
+            "operation": "string",
+            "inputTokens": 7022,
+            "outputTokens": 9719,
+            "cachedReadTokens": 3716,
+            "cacheWriteTokens": 4864,
+            "costUsd": 8000.868985684687,
+            "reservedCostUsd": 6412.734264200045,
+            "usageKnown": true,
+            "fundingSource": "string"
+          }
+        ],
+        "platformCostUsd": 5914.326434451419,
+        "platformReservationId": "f3fa100c-679f-8bb2-b491-cfcb05465ae7",
+        "tariffVersion": "string",
+        "byokScopeId": "4ece8dd4-aa5e-2042-8335-1c6d048e3b18"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestTier": {
+            "type": "string",
+            "enum": [
+              "DIRECT_TOOL",
+              "SINGLE_AGENT",
+              "DEPARTMENT",
+              "MULTI_DEPARTMENT",
+              "HUMAN_REQUIRED"
+            ]
+          },
+          "modelCalls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "toolCalls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cachedTokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "searchCredits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "crawledPages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retryCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "durationMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pricingSnapshotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actualCost": {
+            "type": "number"
+          },
+          "costCurrency": {
+            "type": "string"
+          },
+          "costStatus": {
+            "type": "string",
+            "enum": [
+              "PRICED",
+              "UNPRICED"
+            ]
+          },
+          "billableOutcome": {
+            "type": "boolean"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "providerCalls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "callId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "OPENAI",
+                    "GEMINI"
+                  ]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "operation": {
+                  "type": "string"
+                },
+                "inputTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "outputTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "cachedReadTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "cacheWriteTokens": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "costUsd": {
+                  "type": "number"
+                },
+                "reservedCostUsd": {
+                  "type": "number"
+                },
+                "usageKnown": {
+                  "type": "boolean"
+                },
+                "fundingSource": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "platformCostUsd": {
+            "type": "number"
+          },
+          "platformReservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tariffVersion": {
+            "type": "string"
+          },
+          "byokScopeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+order: 1000

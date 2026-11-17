@@ -1,0 +1,91 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/me"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "5555f8b8-2804-3b68-b559-1c1757f789a6",
+        "email": "string",
+        "displayName": "string",
+        "status": "string",
+        "workspaces": [
+          {
+            "workspaceId": "bd4192e9-c90b-ba8f-1496-45e381599d20",
+            "name": "string",
+            "slug": "string",
+            "effectivePermissions": [
+              "string",
+              "string"
+            ]
+          },
+          {
+            "workspaceId": "a2278962-21f9-e95b-0f4b-86ec690b125c",
+            "name": "string",
+            "slug": "string",
+            "effectivePermissions": [
+              "string",
+              "string"
+            ]
+          }
+        ]
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "workspaceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "effectivePermissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

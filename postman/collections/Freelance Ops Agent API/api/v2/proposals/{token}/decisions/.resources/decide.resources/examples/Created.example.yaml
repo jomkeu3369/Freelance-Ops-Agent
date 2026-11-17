@@ -1,0 +1,72 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/proposals/:token/decisions"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    token: string
+  body:
+    type: json
+    content: |-
+      {
+        "clientName": "string",
+        "decision": "REJECTED",
+        "clientEmail": "T2UOs@euCqaQIqLzyaPGSgJZRgERyxMVA.ig",
+        "comment": "string"
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "decisionId": "bc8aa9a5-0c90-96fe-6034-fd4ec8849ea7",
+        "quotationId": "20918aa6-59ac-0488-efe9-8865ec0edb11",
+        "decision": "CHANGES_REQUESTED",
+        "clientName": "string",
+        "comment": "string",
+        "decidedAt": "1967-07-26T16:51:06.758Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "CHANGES_REQUESTED",
+              "REJECTED"
+            ]
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

@@ -1,0 +1,308 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/pets"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "accessory": "scarf",
+          "animal": "pixel",
+          "color": "rose",
+          "deliveryPriority": "SPEED",
+          "duty": "WRITING",
+          "name": "pN_}_}p",
+          "preferences": {
+            "communication": "string",
+            "focus": "string",
+            "personality": "string",
+            "requests": [
+              "string",
+              "string",
+              "st",
+              "string",
+              "string",
+              "string"
+            ],
+            "responsibility": "string"
+          },
+          "scopePriority": "CAUTIOUS",
+          "skillMode": "AUTO",
+          "slot": "EXPANDED",
+          "tone": "WARM",
+          "valuePriority": "PROFIT",
+          "petId": "5ac3c174-eb8a-b50d-f603-e4745e55f3d0",
+          "sprite": {
+            "palette": [
+              "#D52C7b",
+              "#2cf2c5",
+              "#58BA30",
+              "#0EF9Be",
+              "#dbF5e2",
+              "#FD74cA",
+              "#2BF8Fe",
+              "#C0571D",
+              "#8F0CF0",
+              "#dcA5b5",
+              "#ef8FF7",
+              "#dab6fc",
+              "#D1B7d8",
+              "#BfefFf",
+              "#C5c3BF"
+            ],
+            "rows": [
+              "55A410911452E537A10E11BE09DA94E7",
+              "45D0C8BC1A50.C32D.D8E.9881E18040",
+              "BADB.3E705CED39AA.A4A3.40B.A700B",
+              "55D0B09524446.7E8105A1.D.B9CC3D5",
+              ".813.E.A92...A.4E59DAC338A4650E2",
+              "764B9.A85.9E025.5C7586B.D026D9C9",
+              "9B4E.88712B4E9.19AD4121A3D00.2CD",
+              "8783A9712.4293D3C38D3.9E0D080884",
+              "0.934D370564CC540.8D39D15300921C",
+              "9D698BD2D373B55C.B42D.75AE0352C1",
+              "0E4448.BE2D921A855032790BC123E9A",
+              "187E7.4C.C6.16.44A1E332A770603.6",
+              "5E74E0078EAD8AC046D461494CEB2769",
+              "BBC0A2016A0588B3B.E2837C70377D57",
+              "838A741C91.8738B57610A305734CCA5",
+              "3A9B2ED.64.2D62820ADE9560D0C.1D6",
+              "6.844483DA4D78.324A1DE4BAA254C95",
+              "207539E928C9AC9ED3972.8EE37ED6.8",
+              "8.9B.81353A8A45C5ED6A431D87BC4BB",
+              "973A3DCAD15820CCC4A585E6D909279C"
+            ],
+            "species": "string"
+          }
+        },
+        {
+          "accessory": "scarf",
+          "animal": "turtle",
+          "color": "peach",
+          "deliveryPriority": "QUALITY",
+          "duty": "RESEARCH",
+          "name": " -__{-Npp{-",
+          "preferences": {
+            "communication": "string",
+            "focus": "string",
+            "personality": "string",
+            "requests": [
+              "string",
+              "string",
+              "string",
+              "string",
+              "string",
+              "string"
+            ],
+            "responsibility": "s"
+          },
+          "scopePriority": "EXPLORATORY",
+          "skillMode": "AUTO",
+          "slot": "LEAN",
+          "tone": "WARM",
+          "valuePriority": "BALANCED",
+          "petId": "7903c73b-c1af-6ef5-d68e-c4678ecef44c",
+          "sprite": {
+            "palette": [
+              "#eBa115",
+              "#a38B3D",
+              "#af9BD9",
+              "#44FD0d",
+              "#d9108f",
+              "#47Acc5",
+              "#a94db2",
+              "#6BffD2",
+              "#92b1BF",
+              "#74CADf",
+              "#559fCF",
+              "#EDb4b0",
+              "#706F3b",
+              "#72a990",
+              "#9eCfB2"
+            ],
+            "rows": [
+              "813C14D7237B4B9289.306989D71EA81",
+              "31C3611D4B0D.64C62AC85A605938E53",
+              "80100041C098239.1E462.9E445.C418",
+              "2C47031B0D0.6E01C066E56C3795D79C",
+              ".A72D4D435C693989..410EBD.A38134",
+              "A60A58D98687317B98.0161A325C1.1B",
+              "9268516BB807D3A0632B6D5CB5D01.A8",
+              "198.B201156DD6.BA33A9.484C952EB3",
+              "E2857C91.70C8B.83352C.4.0147DC36",
+              "82B9CA7B8.759A5AD.B9224AD94EAE29",
+              "A.A38C0D.314.0.7BBA65A619A1A.4A9",
+              "1850BB7.2.877B086552C8AE503.20A2",
+              "6460E3.A6D84BAB4CD1E2CEBB8569D38",
+              "78D.74B7DEA3CC37001488B.58.67D7C",
+              "7A604BEBDACA325DDB28CCB.15AC5B01",
+              "75D52A8A760526B9262A1C8BC8087.41",
+              ".559B4A890684612970.DBB76D45D244",
+              "22A15E7486A9D1E90638D121BEEE143A",
+              "3DD716931A0BA912EEDC9.C2003.2703",
+              "3A0DC31D640526446ED.75CD4D92E4.B"
+            ],
+            "species": "string"
+          }
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": "string",
+              "pattern": "LEAN|RECOMMENDED|EXPANDED"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 20,
+              "pattern": "[\\p{L}\\p{N} _-]+"
+            },
+            "animal": {
+              "type": "string",
+              "pattern": "turtle|owl|cat|pixel"
+            },
+            "color": {
+              "type": "string",
+              "pattern": "sage|lavender|peach|sky|rose|ink"
+            },
+            "accessory": {
+              "type": "string",
+              "pattern": "none|glasses|scarf|star"
+            },
+            "tone": {
+              "type": "string",
+              "pattern": "WARM|DIRECT|FORMAL"
+            },
+            "valuePriority": {
+              "type": "string",
+              "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+            },
+            "deliveryPriority": {
+              "type": "string",
+              "pattern": "SPEED|BALANCED|QUALITY"
+            },
+            "scopePriority": {
+              "type": "string",
+              "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+            },
+            "petId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "duty": {
+              "type": "string",
+              "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+            },
+            "skillMode": {
+              "type": "string",
+              "pattern": "AUTO"
+            },
+            "preferences": {
+              "type": "object",
+              "properties": {
+                "personality": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                },
+                "communication": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                },
+                "focus": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                },
+                "responsibility": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 500
+                },
+                "requests": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  }
+                }
+              },
+              "required": [
+                "communication",
+                "focus",
+                "personality",
+                "requests",
+                "responsibility"
+              ]
+            },
+            "sprite": {
+              "type": "object",
+              "properties": {
+                "species": {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 32
+                },
+                "palette": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "#[0-9a-fA-F]{6}"
+                  }
+                },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "[.0-9A-E]{32}"
+                  }
+                }
+              },
+              "required": [
+                "palette",
+                "rows",
+                "species"
+              ]
+            }
+          },
+          "required": [
+            "accessory",
+            "animal",
+            "color",
+            "deliveryPriority",
+            "duty",
+            "name",
+            "preferences",
+            "scopePriority",
+            "skillMode",
+            "slot",
+            "tone",
+            "valuePriority"
+          ]
+        }
+      }
+order: 1000

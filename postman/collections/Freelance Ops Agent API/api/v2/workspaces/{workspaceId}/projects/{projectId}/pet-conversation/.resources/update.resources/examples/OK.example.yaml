@@ -1,0 +1,180 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/pet-conversation"
+  method: PUT
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "participantPetIds": [
+          "c5b65208-84ae-5216-a106-f31c0e9a6f70",
+          "3799b628-cb39-a5ff-295c-57558a2d51d1",
+          "bb948dc0-f8fb-6644-4463-089645310a5a"
+        ],
+        "petMode": true,
+        "debateEnabled": false,
+        "expectedVersion": 8891
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "settings": {
+          "petMode": false,
+          "debateEnabled": false,
+          "participantPetIds": [
+            "bf5eb559-0e8a-734a-aa11-982667a20cee",
+            "fdec6c65-e9fb-e159-a8d0-09ffff38c868"
+          ],
+          "acceptedDraft": {
+            "scenario": "string",
+            "items": [
+              {
+                "title": "string",
+                "description": "string",
+                "quantity": 6196.0991615298735,
+                "unit": "string",
+                "rateCardHint": "string",
+                "basis": {
+                  "type": "string",
+                  "content": "string",
+                  "sourceReference": "string",
+                  "sourceTitle": "string"
+                }
+              },
+              {
+                "title": "string",
+                "description": "string",
+                "quantity": 8384.11534452823,
+                "unit": "string",
+                "rateCardHint": "string",
+                "basis": {
+                  "type": "string",
+                  "content": "string",
+                  "sourceReference": "string",
+                  "sourceTitle": "string"
+                }
+              }
+            ],
+            "petPerspective": {
+              "proposal": "string",
+              "rationale": "string",
+              "tradeoff": "string"
+            }
+          },
+          "draftSourceRunId": "50375d30-3729-5da1-2aab-b0fb20e052e9"
+        },
+        "version": 2428
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "type": "object",
+            "properties": {
+              "petMode": {
+                "type": "boolean"
+              },
+              "debateEnabled": {
+                "type": "boolean"
+              },
+              "participantPetIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "acceptedDraft": {
+                "type": "object",
+                "properties": {
+                  "scenario": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "format": "double"
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "rateCardHint": {
+                          "type": "string"
+                        },
+                        "basis": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "sourceReference": {
+                              "type": "string"
+                            },
+                            "sourceTitle": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "petPerspective": {
+                    "type": "object",
+                    "properties": {
+                      "proposal": {
+                        "type": "string"
+                      },
+                      "rationale": {
+                        "type": "string"
+                      },
+                      "tradeoff": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "draftSourceRunId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

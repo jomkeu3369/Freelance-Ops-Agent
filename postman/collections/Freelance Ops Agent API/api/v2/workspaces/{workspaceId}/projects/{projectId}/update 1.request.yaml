@@ -1,0 +1,114 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "currency": "GPZ",
+      "requirementText": "string",
+      "status": "CANCELLED",
+      "title": "string",
+      "clientId": "25530e0e-261a-46cb-d395-2237a173ecce",
+      "deadline": "1951-04-12",
+      "budgetMin": 6668.814495441084,
+      "budgetMax": 2252.725655692365
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "requirementText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{3}$"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date"
+        },
+        "budgetMin": {
+          "type": "number",
+          "minimum": 0
+        },
+        "budgetMax": {
+          "type": "number",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "LEAD",
+            "QUALIFYING",
+            "QUOTING",
+            "NEGOTIATING",
+            "ACCEPTED",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "CANCELLED"
+          ]
+        }
+      },
+      "required": [
+        "currency",
+        "requirementText",
+        "status",
+        "title"
+      ]
+    }
+settings: {}
+examples: ./.resources/update 1.resources/examples
+order: 11000

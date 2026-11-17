@@ -1,0 +1,138 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/route-reviews/claims?limit=10"
+  method: POST
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    limit: "10"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      [
+        {
+          "id": "3be53ba2-2167-5e0e-9cdd-a794611096c8",
+          "runId": "20d57613-3e11-b89a-2411-b5a083aff275",
+          "eventId": 7812,
+          "projectId": "ed7544ff-5db5-60c6-9d6f-ef1fcf6eb957",
+          "occurredAt": "1958-06-12T01:21:47.770Z",
+          "routeData": {
+            "key_0": 6223.006609386892
+          },
+          "goldRoute": "SUPERVISOR",
+          "correctionSource": "POLICY_REPLAY",
+          "reviewedAt": "2006-12-22T02:07:58.244Z",
+          "claimExpiresAt": "1964-09-04T05:12:31.998Z",
+          "reviewTarget": 6203,
+          "reviewVotes": 3652,
+          "reviewStatus": "PENDING"
+        },
+        {
+          "id": "94d76345-7e18-ded6-5081-7ba8a240e4e1",
+          "runId": "ba248ff0-ee9f-ac91-1f8e-72368444261c",
+          "eventId": 6807,
+          "projectId": "95ceec5a-ff44-ee2e-bb41-624289c47e0b",
+          "occurredAt": "1948-10-26T09:25:53.560Z",
+          "routeData": {
+            "key_0": 8841.04124335235,
+            "key_1": 7630
+          },
+          "goldRoute": "HUMAN_REQUIRED",
+          "correctionSource": "HUMAN_REVIEW",
+          "reviewedAt": "2005-01-04T13:16:31.458Z",
+          "claimExpiresAt": "1975-12-07T19:42:36.933Z",
+          "reviewTarget": 3443,
+          "reviewVotes": 7201,
+          "reviewStatus": "COMPLETED"
+        }
+      ]
+    $type: |-
+      {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "runId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "eventId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "projectId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "occurredAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "routeData": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "goldRoute": {
+              "type": "string",
+              "enum": [
+                "DIRECT_TOOL",
+                "SIMPLE_LLM",
+                "REACT_AGENT",
+                "SUPERVISOR",
+                "HUMAN_REQUIRED"
+              ]
+            },
+            "correctionSource": {
+              "type": "string",
+              "enum": [
+                "HUMAN_REVIEW",
+                "USER_EDIT",
+                "POLICY_REPLAY"
+              ]
+            },
+            "reviewedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "claimExpiresAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "reviewTarget": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "reviewVotes": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "reviewStatus": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "ADJUDICATION",
+                "COMPLETED"
+              ]
+            }
+          }
+        }
+      }
+order: 1000

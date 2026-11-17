@@ -1,0 +1,73 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/quotations/assumption-suggestions"
+  method: POST
+  headers:
+    - key: traceparent
+      value: string
+      disabled: false
+      description: ""
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "itemTitle": "string",
+        "modelSelection": {
+          "model": "string",
+          "provider": "GEMINI",
+          "reasoningEffort": "NONE",
+          "credentialId": "1624aac8-a681-a65d-38da-cf529fc13f87"
+        },
+        "quantity": 890.5519010852503,
+        "unit": "DAY",
+        "itemDescription": "string",
+        "currentAssumption": "string"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "requestId": "e3c33035-fa1d-26ee-386d-2e59062d3d75",
+        "content": "string",
+        "provider": "GEMINI",
+        "model": "string"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "GEMINI"
+            ]
+          },
+          "model": {
+            "type": "string"
+          }
+        }
+      }
+order: 1000

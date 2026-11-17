@@ -1,0 +1,87 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/estimation-policy/proposals"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "defaultRiskBufferRate": 0.2694828569983423,
+      "defaultTaxRate": 0.3652993712184067,
+      "expectedVersion": 2776,
+      "idempotencyKey": "aeb6ece3-ac4b-abc9-77b0-075bd14ba382",
+      "maximumDiscountRate": 0.7565601031365805,
+      "projectId": "3aa18f21-18fd-114c-7761-9a8788e8197a",
+      "sourceMessage": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "defaultTaxRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "defaultRiskBufferRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "maximumDiscountRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sourceMessage": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50000
+        }
+      },
+      "required": [
+        "defaultRiskBufferRate",
+        "defaultTaxRate",
+        "expectedVersion",
+        "idempotencyKey",
+        "maximumDiscountRate",
+        "projectId",
+        "sourceMessage"
+      ]
+    }
+settings: {}
+examples: ./.resources/propose.resources/examples
+order: 1000

@@ -1,0 +1,96 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/ai-connections"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "available": true,
+        "models": {
+          "key_0": [
+            "string",
+            "string"
+          ]
+        },
+        "connections": [
+          {
+            "id": "aa48d57b-09f3-cb40-9166-e62f46297671",
+            "provider": "OPENAI",
+            "model": "string",
+            "maskedKey": "string",
+            "updatedAt": "2018-11-27T19:07:33.064Z"
+          },
+          {
+            "id": "ace2b44c-8491-6eb1-a2ca-b0e35c25d4da",
+            "provider": "OPENAI",
+            "model": "string",
+            "maskedKey": "string",
+            "updatedAt": "2001-12-28T07:39:08.573Z"
+          }
+        ]
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "models": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "OPENAI",
+                    "GEMINI"
+                  ]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "maskedKey": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+order: 1000

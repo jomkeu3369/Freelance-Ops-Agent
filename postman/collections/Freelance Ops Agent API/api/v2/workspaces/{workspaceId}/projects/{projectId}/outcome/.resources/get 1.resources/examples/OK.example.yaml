@@ -1,0 +1,127 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/outcome"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "7f840265-a2d2-2c23-8cb7-66c915acc54e",
+        "workspaceId": "5a7af723-bc39-b829-598c-52fc51c86432",
+        "projectId": "bb468d0f-977c-8986-b67a-e81b92e51a88",
+        "approvedQuotationId": "ec48c3e3-c076-2464-6fe3-3ad47d59a3b3",
+        "totalRevenue": 3830.120960027538,
+        "actualCost": 7055.403057518488,
+        "actualHours": 2351.7319185173037,
+        "profitAmount": 6254.114717119719,
+        "profitMargin": 9341.735555000541,
+        "completedOn": "1956-12-23",
+        "changeReason": "string",
+        "workItems": [
+          {
+            "quotationItemId": "78c31de7-8051-9d78-cd83-6e50175ce733",
+            "title": "string",
+            "actualHours": 2231.7428058035903,
+            "actualCost": 5375.023301645541,
+            "notes": "string"
+          },
+          {
+            "quotationItemId": "f39bbe95-3c41-7720-ef6e-9912d8ce1b5f",
+            "title": "string",
+            "actualHours": 8922.748969321228,
+            "actualCost": 9971.112064063878,
+            "notes": "string"
+          }
+        ],
+        "version": 4388
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approvedQuotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalRevenue": {
+            "type": "number"
+          },
+          "actualCost": {
+            "type": "number"
+          },
+          "actualHours": {
+            "type": "number"
+          },
+          "profitAmount": {
+            "type": "number"
+          },
+          "profitMargin": {
+            "type": "number"
+          },
+          "completedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "workItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "quotationItemId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "actualHours": {
+                  "type": "number"
+                },
+                "actualCost": {
+                  "type": "number"
+                },
+                "notes": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

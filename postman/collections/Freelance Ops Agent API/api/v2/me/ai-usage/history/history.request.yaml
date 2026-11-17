@@ -1,0 +1,33 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/me/ai-usage/history?cursor=string&limit=20"
+method: GET
+headers:
+  Accept: "*/*"
+queryParams:
+  - key: cursor
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: limit
+    value: "20"
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "format": "int32",
+            "default": 20
+          }
+        }
+      }
+body:
+  type: text
+  content: ""
+settings: {}
+examples: ./.resources/history.resources/examples
+order: 1000

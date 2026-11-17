@@ -1,0 +1,142 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/quotations/assumption-suggestions"
+method: POST
+headers:
+  - key: traceparent
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "itemTitle": "string",
+      "modelSelection": {
+        "model": "string",
+        "provider": "GEMINI",
+        "reasoningEffort": "NONE",
+        "credentialId": "1624aac8-a681-a65d-38da-cf529fc13f87"
+      },
+      "quantity": 890.5519010852503,
+      "unit": "DAY",
+      "itemDescription": "string",
+      "currentAssumption": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "itemTitle": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "itemDescription": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 5000
+        },
+        "quantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "HOUR",
+            "DAY",
+            "FIXED"
+          ]
+        },
+        "currentAssumption": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 3000
+        },
+        "modelSelection": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "OPENAI",
+                "GEMINI"
+              ]
+            },
+            "model": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 100
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "LOW",
+                "MEDIUM",
+                "HIGH"
+              ]
+            },
+            "credentialId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "model",
+            "provider",
+            "reasoningEffort"
+          ]
+        }
+      },
+      "required": [
+        "itemTitle",
+        "modelSelection",
+        "quantity",
+        "unit"
+      ]
+    }
+settings: {}
+examples: ./.resources/suggest Assumption.resources/examples
+order: 1000

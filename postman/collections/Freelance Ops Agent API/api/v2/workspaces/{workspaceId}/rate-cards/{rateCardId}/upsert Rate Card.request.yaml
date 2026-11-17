@@ -1,0 +1,98 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/rate-cards/:rateCardId"
+method: PUT
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: rateCardId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "currency": "RSI",
+      "minimumAmount": 8799.734848216916,
+      "name": "string",
+      "rate": 5284.928561553553,
+      "unit": "DAY",
+      "active": false
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "HOUR",
+            "DAY",
+            "FIXED"
+          ]
+        },
+        "rate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minimumAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{3}$"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "currency",
+        "minimumAmount",
+        "name",
+        "rate",
+        "unit"
+      ]
+    }
+settings: {}
+examples: ./.resources/upsert Rate Card.resources/examples
+order: 1000

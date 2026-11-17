@@ -1,0 +1,29 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/auth/logout"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "refreshToken": "string"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "refreshToken"
+      ]
+    }
+settings: {}
+examples: ./.resources/logout.resources/examples
+order: 1000

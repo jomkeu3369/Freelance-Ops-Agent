@@ -1,0 +1,264 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/agent-pets"
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "description": "string",
+        "id": "1a486291-4c8c-c9e8-fd25-5a2b9c3c4eea",
+        "mutationId": "7ef1c073-6556-50b7-3c80-a9d1d85a34fc",
+        "expectedRevision": 6780,
+        "resetPreferences": true,
+        "generationId": "5aff4ea5-dc13-c45f-a181-d2e3c0b9ce51"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "id": "f5b34b44-94ea-477f-ff8b-5838d902d8a9",
+        "profile": {
+          "accessory": "scarf",
+          "animal": "owl",
+          "color": "lavender",
+          "deliveryPriority": "BALANCED",
+          "duty": "RESEARCH",
+          "name": "p{ - }} LNN",
+          "preferences": {
+            "communication": "string",
+            "focus": "string",
+            "personality": "string",
+            "requests": [
+              "string",
+              "string",
+              "string",
+              "string",
+              "string",
+              "string"
+            ],
+            "responsibility": "string"
+          },
+          "scopePriority": "EXPLORATORY",
+          "skillMode": "AUTO",
+          "slot": "EXPANDED",
+          "tone": "DIRECT",
+          "valuePriority": "PROFIT",
+          "petId": "27e3c321-6b8a-7b68-7ef6-629e33604302",
+          "sprite": {
+            "palette": [
+              "#Ee7Bfb",
+              "#D1FbFb",
+              "#17aEBC",
+              "#eE17E8",
+              "#6E0064",
+              "#18a7f1",
+              "#Abb3bA",
+              "#6Ce5DE",
+              "#3F6D31",
+              "#5C512F",
+              "#00Ded0",
+              "#1dB7a2",
+              "#eaa463",
+              "#F62bF0",
+              "#bbbD14"
+            ],
+            "rows": [
+              "16B5A4B3B318446ED.70.EA1CC33ACED",
+              "8E33E3.E66D57.255CD5A5A8EA7DBB8D",
+              "D19313DD11A31764DCD8658E7C97A48B",
+              "2052D.890141797C5AA.CC2251359B.9",
+              "65B79795757C71B2E5EB0DDD286AAD3A",
+              "51E5C83E576759AC2E1C4C24E0C5E311",
+              "9B538399E7037AAC66AB107633EE78B6",
+              "B2BEE7865ED40.17242D69A73E47AEA8",
+              "81A66B.E957DB5C54DAD994ED.E48EDE",
+              "15C02D8103DADC539.D8D276.01986C3",
+              "990220E03CED139.C913E07.830C..93",
+              "7.A84.1C365C332A879A489.8059.A6D",
+              "57DE.B9.A9B775B2EC879CE1BE3118E5",
+              "6.8B20A4BA779DB84B2B13325CABEA77",
+              "95B9B90E58710C5459371.2673598E94",
+              "B18B.C8B06A6946.28B28B82B7978A83",
+              "BBDC03C1EA255A244C8639AD594475EC",
+              "77D3461C70743789B1.B.931CB51BB59",
+              "9A50.099E12C4083419198279.AC4C71",
+              "4336.795CC52EA17A5C60EECB7BC.052"
+            ],
+            "species": "string"
+          }
+        },
+        "archived": false,
+        "revision": 2966
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "pattern": "LEAN|RECOMMENDED|EXPANDED"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 20,
+                "pattern": "[\\p{L}\\p{N} _-]+"
+              },
+              "animal": {
+                "type": "string",
+                "pattern": "turtle|owl|cat|pixel"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "sage|lavender|peach|sky|rose|ink"
+              },
+              "accessory": {
+                "type": "string",
+                "pattern": "none|glasses|scarf|star"
+              },
+              "tone": {
+                "type": "string",
+                "pattern": "WARM|DIRECT|FORMAL"
+              },
+              "valuePriority": {
+                "type": "string",
+                "pattern": "PROFIT|BALANCED|RELATIONSHIP"
+              },
+              "deliveryPriority": {
+                "type": "string",
+                "pattern": "SPEED|BALANCED|QUALITY"
+              },
+              "scopePriority": {
+                "type": "string",
+                "pattern": "CAUTIOUS|BALANCED|EXPLORATORY"
+              },
+              "petId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "duty": {
+                "type": "string",
+                "pattern": "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN"
+              },
+              "skillMode": {
+                "type": "string",
+                "pattern": "AUTO"
+              },
+              "preferences": {
+                "type": "object",
+                "properties": {
+                  "personality": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "communication": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "focus": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "responsibility": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 500
+                  },
+                  "requests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "communication",
+                  "focus",
+                  "personality",
+                  "requests",
+                  "responsibility"
+                ]
+              },
+              "sprite": {
+                "type": "object",
+                "properties": {
+                  "species": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 32
+                  },
+                  "palette": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "#[0-9a-fA-F]{6}"
+                    }
+                  },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "[.0-9A-E]{32}"
+                    }
+                  }
+                },
+                "required": [
+                  "palette",
+                  "rows",
+                  "species"
+                ]
+              }
+            },
+            "required": [
+              "accessory",
+              "animal",
+              "color",
+              "deliveryPriority",
+              "duty",
+              "name",
+              "preferences",
+              "scopePriority",
+              "skillMode",
+              "slot",
+              "tone",
+              "valuePriority"
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+order: 1000

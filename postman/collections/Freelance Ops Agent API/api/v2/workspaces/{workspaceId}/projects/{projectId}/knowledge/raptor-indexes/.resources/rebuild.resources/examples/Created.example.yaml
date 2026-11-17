@@ -1,0 +1,61 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/knowledge/raptor-indexes"
+  method: POST
+  headers:
+    - key: traceparent
+      value: string
+      disabled: false
+      description: ""
+    - key: Content-Type
+      value: application/json
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  pathVariables:
+    workspaceId: de2b5314-6e0a-8843-21c2-82105d14e423
+    projectId: de2b5314-6e0a-8843-21c2-82105d14e423
+  body:
+    type: json
+    content: |-
+      {
+        "embeddingModel": "string",
+        "provider": "GEMINI",
+        "summaryModel": "string",
+        "targetClusterSize": 18,
+        "maxSummaryLevels": 4,
+        "kmeansIterations": 49
+      }
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "snapshotId": "84808cf4-622c-c43f-4e86-455a0b8c087d",
+        "status": "string",
+        "nodeCount": 9695
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "nodeCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+order: 1000

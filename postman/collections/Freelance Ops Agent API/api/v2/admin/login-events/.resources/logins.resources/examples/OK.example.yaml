@@ -1,0 +1,91 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/v2/admin/login-events?userId=de2b5314-6e0a-8843-21c2-82105d14e423&page=0&size=25"
+  method: GET
+  headers:
+    - key: Accept
+      value: "*/*"
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+  queryParams:
+    userId: de2b5314-6e0a-8843-21c2-82105d14e423
+    page: "0"
+    size: "25"
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: "*/*"
+  body:
+    type: text
+    content: |-
+      {
+        "items": [
+          {
+            "id": "b12c8ae4-32e7-f877-335a-0ffac9419011",
+            "userId": "856baf4f-21ef-0b89-b890-a39a9ae6b44f",
+            "method": "string",
+            "occurredAt": "1997-11-17T03:56:33.055Z"
+          },
+          {
+            "id": "54518f57-8a57-bf55-ddb3-eb8e43f41c74",
+            "userId": "d9789845-428e-c263-0884-7b10b93bcb13",
+            "method": "string",
+            "occurredAt": "1990-03-26T08:45:36.743Z"
+          }
+        ],
+        "total": 8107,
+        "page": 8932,
+        "size": 6480,
+        "recordingStartedAt": "2001-09-04T01:28:47.476Z"
+      }
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "userId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordingStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+order: 1000

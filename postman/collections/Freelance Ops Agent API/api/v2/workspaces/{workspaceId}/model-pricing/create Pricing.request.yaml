@@ -1,0 +1,100 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/model-pricing"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "cachedInputPerMillion": 8105.385295537366,
+      "currency": "VTN",
+      "inputPerMillion": 6542.674663209943,
+      "model": "string",
+      "outputPerMillion": 5220.727479275887,
+      "provider": "OPENAI",
+      "validFrom": "1983-03-21T06:58:36.195Z",
+      "versionLabel": "string",
+      "validUntil": "2009-07-01T12:50:43.769Z"
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "OPENAI",
+            "GEMINI"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "versionLabel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Z]{3}$"
+        },
+        "inputPerMillion": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cachedInputPerMillion": {
+          "type": "number",
+          "minimum": 0
+        },
+        "outputPerMillion": {
+          "type": "number",
+          "minimum": 0
+        },
+        "validFrom": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "cachedInputPerMillion",
+        "currency",
+        "inputPerMillion",
+        "model",
+        "outputPerMillion",
+        "provider",
+        "validFrom",
+        "versionLabel"
+      ]
+    }
+settings: {}
+examples: ./.resources/create Pricing.resources/examples
+order: 2000

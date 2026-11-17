@@ -1,0 +1,345 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/api/v2/workspaces/:workspaceId/projects/:projectId/agent-runs"
+method: POST
+headers:
+  - key: Idempotency-Key
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: traceparent
+    value: string
+    disabled: false
+    description: ""
+    $type: string
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: "*/*"
+pathVariables:
+  - key: workspaceId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+  - key: projectId
+    value: de2b5314-6e0a-8843-21c2-82105d14e423
+    disabled: false
+    description: ""
+    $type: |-
+      {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+body:
+  type: json
+  content: |-
+    {
+      "budget": {
+        "maxDurationSeconds": 640,
+        "maxModelCalls": 28,
+        "maxToolCalls": 55,
+        "maxInputTokens": 1839,
+        "maxOutputTokens": 2883,
+        "maxDepartments": 1,
+        "maxHierarchyDepth": 1,
+        "maxSearchCredits": 11,
+        "maxRetries": 0,
+        "maxHandoffs": 8
+      },
+      "locale": "strin",
+      "modelSelection": {
+        "model": "string",
+        "provider": "GEMINI",
+        "reasoningEffort": "NONE",
+        "credentialId": "8114d50b-17ba-7600-b40c-6900f6dcb03f"
+      },
+      "requirementText": "string",
+      "safetyContext": {
+        "externalSideEffect": false,
+        "sensitiveData": true,
+        "financialAuthorityRequired": true,
+        "legalAuthorityRequired": true,
+        "irreversibleAction": false,
+        "approvalRequired": false,
+        "authorityVerified": true
+      },
+      "jurisdictionCode": "string",
+      "creditQuote": {
+        "pricingUpdatedAt": "1997-10-14T03:39:44.515Z",
+        "credits": 15883
+      },
+      "attachmentIds": [
+        "0f306ba2-0700-a78c-082c-baeea9a7917a",
+        "85045b6f-4afa-4dfc-643d-ef188e2b5906",
+        "4c2121f5-3555-c78d-c034-4032eabf5569",
+        "1acb3f09-1d1c-89b4-996a-2e3cd97f46ed",
+        "4451bf63-fc1a-7ca6-b988-8d7c834242b9",
+        "9b67809b-3e59-4d2c-3fe5-870a3a7ba77b"
+      ],
+      "skillSelection": {
+        "mode": "string",
+        "manualIds": [
+          "string",
+          "string"
+        ],
+        "excludedIds": [
+          "string",
+          "string"
+        ],
+        "catalogVersion": "string"
+      },
+      "workflowMode": "PROJECT_ANALYSIS",
+      "byokCostNoticeVersion": "string",
+      "conversation": {
+        "settingsVersion": 783,
+        "recipientPetId": "506e5753-12d6-6ba5-30d7-a8a94a8d6aab"
+      }
+    }
+  $type: |-
+    {
+      "type": "object",
+      "properties": {
+        "requirementText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "locale": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 20
+        },
+        "jurisdictionCode": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32
+        },
+        "modelSelection": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "OPENAI",
+                "GEMINI"
+              ]
+            },
+            "model": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 100
+            },
+            "reasoningEffort": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "LOW",
+                "MEDIUM",
+                "HIGH"
+              ]
+            },
+            "credentialId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "model",
+            "provider",
+            "reasoningEffort"
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "properties": {
+            "maxDurationSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900,
+              "format": "int32"
+            },
+            "maxModelCalls": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50,
+              "format": "int32"
+            },
+            "maxToolCalls": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "format": "int32"
+            },
+            "maxInputTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "format": "int32"
+            },
+            "maxOutputTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "format": "int32"
+            },
+            "maxDepartments": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "format": "int32"
+            },
+            "maxHierarchyDepth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2,
+              "format": "int32"
+            },
+            "maxSearchCredits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "format": "int32"
+            },
+            "maxRetries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5,
+              "format": "int32"
+            },
+            "maxHandoffs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "format": "int32"
+            }
+          }
+        },
+        "safetyContext": {
+          "type": "object",
+          "properties": {
+            "externalSideEffect": {
+              "type": "boolean"
+            },
+            "sensitiveData": {
+              "type": "boolean"
+            },
+            "financialAuthorityRequired": {
+              "type": "boolean"
+            },
+            "legalAuthorityRequired": {
+              "type": "boolean"
+            },
+            "irreversibleAction": {
+              "type": "boolean"
+            },
+            "approvalRequired": {
+              "type": "boolean"
+            },
+            "authorityVerified": {
+              "type": "boolean"
+            }
+          }
+        },
+        "creditQuote": {
+          "type": "object",
+          "properties": {
+            "credits": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "format": "int32"
+            },
+            "pricingUpdatedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "pricingUpdatedAt"
+          ]
+        },
+        "attachmentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "skillSelection": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string"
+            },
+            "manualIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excludedIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "catalogVersion": {
+              "type": "string"
+            }
+          }
+        },
+        "workflowMode": {
+          "type": "string",
+          "pattern": "PROJECT_ANALYSIS|AD_HOC"
+        },
+        "byokCostNoticeVersion": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100
+        },
+        "conversation": {
+          "type": "object",
+          "properties": {
+            "settingsVersion": {
+              "type": "integer",
+              "minimum": 0,
+              "format": "int64"
+            },
+            "recipientPetId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "required": [
+        "budget",
+        "locale",
+        "modelSelection",
+        "requirementText",
+        "safetyContext"
+      ]
+    }
+settings: {}
+examples: ./.resources/start.resources/examples
+order: 1000
